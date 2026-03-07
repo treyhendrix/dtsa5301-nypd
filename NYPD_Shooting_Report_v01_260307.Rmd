@@ -1,0 +1,43 @@
+---
+title: NYPD Shooting Incident Data Report
+author: Trey Hendrix
+date: |
+  Date Created: 260307
+  Date Modified: 260307
+output: 
+  html_document:
+    toc: true
+    
+---
+
+```{r Setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  eval = TRUE
+)
+```
+
+This report...
+
+```{r Packages}
+library(tidyverse)
+
+# Check for R version 4.1.0 or higher for the base pipe |>
+if (getRversion() < "4.1.0") {
+  stop(paste(
+    "Error: R version 4.1.0 or higher is required to use the base pipe (|>).",
+    "Your current version is", getRversion(),
+    ". To run this report, please update R at https://cran.r-project.org/"
+  ))
+}
+```
+
+
+
+# Session Info
+Please see below for information about the specific versions of the packages used to create this report. 
+
+```{r Session info}
+sessionInfo()
+```
+
