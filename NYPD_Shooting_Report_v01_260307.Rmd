@@ -3,10 +3,11 @@ title: NYPD Shooting Incident Data Report
 author: Trey Hendrix
 date: |
   Date Created: 260307
-  Date Modified: 260307
+  Date Modified: 260312
 output: 
   html_document:
     toc: true
+    number_sections: true
     
 ---
 
@@ -17,11 +18,14 @@ knitr::opts_chunk$set(
 )
 ```
 
-This report...
+This report analyzes the...
 
 ```{r Packages}
 library(tidyverse)
+library(kableExtra) # for more aesthetic and customizable data tables
+```
 
+```{r R version check, include=FALSE}
 # Check for R version 4.1.0 or higher for the base pipe |>
 if (getRversion() < "4.1.0") {
   stop(paste(
@@ -32,7 +36,20 @@ if (getRversion() < "4.1.0") {
 }
 ```
 
+# Importing and Cleaning Data
 
+Using the ["ARCHIVED_NYPD Shooting Incident Data (Historic)" on the data.gov website](https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic), we can copy the link for downloading the .csv format of the dataset. Similarly, we can also grab the metadata (which is a JSON).
+```{r Import data}
+raw_df <- read_csv("https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD")
+# meta_df <- https://catalog.data.gov/harvest/object/e150b92a-5c72-4adc-8df5-f27a0a0b641b # TODO 260312 Import JSON and try to get column definitions 
+```
+
+```{r Data overview}
+glimpse(raw_df)
+```
+
+
+From the quick overview of the data above, 
 
 # Session Info
 Please see below for information about the specific versions of the packages used to create this report. 
