@@ -23,6 +23,7 @@ This report analyzes the...
 ```{r Packages}
 library(tidyverse)
 library(kableExtra) # for more aesthetic and customizable data tables
+library(jsonlite) # for parsing JSON metadata 
 ```
 
 ```{r R version check, include=FALSE}
@@ -38,14 +39,28 @@ if (getRversion() < "4.1.0") {
 
 # Importing and Cleaning Data
 
-Using the ["ARCHIVED_NYPD Shooting Incident Data (Historic)" on the data.gov website](https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic), we can copy the link for downloading the .csv format of the dataset. Similarly, we can also grab the metadata (which is a JSON).
+Using the ["ARCHIVED_NYPD Shooting Incident Data (Historic)" on the data.gov website](https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic), we can copy the link for downloading the .csv format of the dataset. Similarly, we can also grab the metadata via this page (which is a JSON).
 ```{r Import data}
 raw_df <- read_csv("https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD")
-# meta_df <- https://catalog.data.gov/harvest/object/e150b92a-5c72-4adc-8df5-f27a0a0b641b # TODO 260312 Import JSON and try to get column definitions 
+meta_list <- fromJSON("https://catalog.data.gov/harvest/object/e150b92a-5c72-4adc-8df5-f27a0a0b641b")
 ```
 
 ```{r Data overview}
 glimpse(raw_df)
+```
+Most of these columns are self-explanatory; however, we will need to dig into the metadata to make sure we understand a few of them. 
+
+```{r Column Definitions}
+column_meta_list <- meta_list$distribution |> 
+  filter(mediaType == "application/json") |> 
+  pull(downloadURL) |> 
+  fromJSON()
+
+column_def_df <- column_meta_list$meta$view$columns
+
+column_def_df |> 
+  filter(fieldName %in% str_to_lower(c("X_COORD_CD", "Y_COORD_CD"))) |> 
+  select(fieldName, description)
 ```
 
 
