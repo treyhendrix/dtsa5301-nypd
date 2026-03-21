@@ -142,6 +142,14 @@ df |>
   geom_col()
 ```
 
+```{r Missing perp by precinct}
+df |> 
+  group_by(precinct, boro) |> 
+  summarize(mean_missing_perp_info = mean(missing_perp_info)) |> 
+  ggplot(aes(x = as.character(precinct), y = mean_missing_perp_info, fill = boro)) + 
+  geom_col()
+```
+
 ```{r Missing perp by victim}
 df |> 
   group_by(vic_race) |> 
