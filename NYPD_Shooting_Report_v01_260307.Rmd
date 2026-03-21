@@ -102,25 +102,58 @@ From the previous `glimpse` call above, it is clear that many records have missi
 
 ```{r Missing counts}
 gg_miss_var(df)
+miss_var_summary(df)
 ```
 
+Fortunately, the majority of records only have a small portion of missing records for most variables (`longitude` to `boro` in the graph above). These variables are also fairly essential/fundamental to understanding a crime that I feel comfortable dropping any records that are missing these information. However, a handful of variables are frequently missing. The location information `loc_classfctn_desc` and `loc_of_occur_desc` are missing too frequently to be informative, so I will largely ignore them. `location_desc` is available for 40% of records while information about the perpetrator (`perp_age_group`, `perp_race`, and `perp_sex`) are available for the majority of incidents. I am interested in digging into this pattern of missing data and will do so in [the first analysis section](# Analysis 1 - The Shadow World of Perps), so I will not drop or impute these data.
+
+
 **Bias Observation #1**: Approximately half of our records are missing information about the race and sex of the perpetrator, while the victims' race and sex is never missing. We need to keep this bias in the data in mind when analyzing perpetrator-victim dynamics. This bias is somewhat intuitive: crimes are reported by victims, not perpetrators.
+
+```{r Critical NA drop}
+# Dropping records with critical missing information
+df <- df |> 
+  drop_na(jurisdiction_code, vic_age_group, vic_race, lon_lat, longitude, latitude)
+
+# Creating a column to track when information is missing about a perp
+df <- df |> 
+  mutate(missing_perp_info = is.na(perp_sex) | is.na(perp_age_group) | is.na(perp_race))
+```
+
+
+# Analysis 1 - The Shadow World of Perps
+
+The name of the `naniar` package is a reference to C.S. Lewis' Narnia fantasy book series. The package's author sees missing data like the mythical realm of Narnia, a hidden other dimension to our data ([source](https://cran.r-project.org/web/packages/naniar/readme/README.html))...
 
 Broadly, there are three types of missing data: missing completely at random (MCAR), missing at random (MAR), and missing not at random (MNAR). MCAR is the easiest to deal with since it means that our data are really just a random sample of a theoretical, more complete dataset. MAR is a bit tricker and refers to data that are missing due to the another observed variable in our dataset. For example, in weather data, we might be missing humidity measurements only at high temperatures (also recorded in our dataset) due to the equipment failing in high heat environments. We can correct for MAR with some statistical care. MNAR is the worst case scenario: the missing data are caused by something not captured in our dataset. This is not possible to fix without adding more data that explain the problematic pattern in the missing records. 
 
 ```{r Spatial missing data}
 df |> 
-  mutate(missing_perp_info = is.na(perp_sex) | is.na(perp_age_group) | is.na(perp_race)) |> 
   filter(!is.na(longitude)) |> 
   ggplot(aes(x = longitude, y = latitude, color = missing_perp_info)) + 
   geom_point(alpha = 0.5, shape = 1) # TODO 260321 Use ggmap for a better understanding of where the water is
+```
+
+```{r Missing perp by Borro}
+df |> 
+  group_by(boro) |> 
+  summarize(mean_missing_perp_info = mean(missing_perp_info)) |> 
+  ggplot(aes(x = boro, y = mean_missing_perp_info)) + 
+  geom_col()
+```
+
+```{r Missing perp by victim}
+df |> 
+  group_by(vic_race) |> 
+  summarize(mean_missing_perp_info = mean(missing_perp_info)) |> 
+  ggplot(aes(x = vic_race, y = mean_missing_perp_info)) + 
+  geom_col()
 ```
 
 
 ```{r upset plot, warning=false}
 gg_miss_upset(df) # TODO 260321_1139 Explain this 
 ```
-
 
 # Session Info
 Please see below for information about the specific versions of the packages used to create this report. 
