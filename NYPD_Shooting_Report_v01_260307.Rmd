@@ -3,7 +3,7 @@ title: NYPD Shooting Incident Data Report
 author: Trey Hendrix
 date: |
   Date Created: 260307
-  Date Modified: 260312
+  Date Modified: 260321
 output: 
   html_document:
     toc: true
@@ -14,9 +14,12 @@ output:
 ```{r Setup, include=FALSE}
 knitr::opts_chunk$set(
   echo = TRUE,
-  eval = TRUE
+  eval = TRUE, 
+  warning = FALSE
 )
 ```
+
+# Introduction
 
 This report analyzes the...
 
@@ -24,6 +27,7 @@ This report analyzes the...
 library(tidyverse)
 library(kableExtra) # for more aesthetic and customizable data tables
 library(jsonlite) # for parsing JSON metadata 
+library(naniar) # for visualizing and analyzing missing data
 ```
 
 ```{r R version check, include=FALSE}
@@ -37,7 +41,7 @@ if (getRversion() < "4.1.0") {
 }
 ```
 
-# Importing and Cleaning Data
+# Importing Data and Metadata
 
 Using the ["ARCHIVED_NYPD Shooting Incident Data (Historic)" on the data.gov website](https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic), we can copy the link for downloading the .csv format of the dataset. Similarly, we can also grab the metadata via this page (which is a JSON).
 ```{r Import data}
@@ -63,8 +67,60 @@ column_def_df |>
   select(fieldName, description)
 ```
 
+For our geographic data, we will stick to the standard latitude and longitude fields, so I will drop these variables in the section below.
 
-From the quick overview of the data above, 
+# Data Cleaning
+
+First, I will also perform some quick cleaning, such as consistently coding missing values and renaming columns. 
+
+```{r Variable selection and name cleanup}
+null_str_values <- c("(null)", "UNKNOWN") # We will replace these with NAs in R to better identify and deal with missing data
+
+df <- raw_df |> 
+  rename_with(.fn = str_to_lower) |>  # make the column names lowercase for consistency
+  mutate(
+    occur_date = mdy(occur_date), # mdy = month day year date format 
+    across( # clean up NA values stored as strings 
+      where(is.character), 
+      .fn = function(x) {ifelse(x %in% null_str_values, NA_character_, x)}
+      )
+  ) |> 
+  select(-c(x_coord_cd, y_coord_cd)) # drop unwanted columns
+
+```
+
+
+A few of our variable might also be better stored as ordinal values (i.e., factors in R) since they have a natural ordering. I take care of that below.
+
+```{r Recoding factors}
+# TODO 260321_1119 Return and do this 
+```
+
+## Missing Data
+
+From the previous `glimpse` call above, it is clear that many records have missing values. The `naniar` R package is my favorite way to understand patterns in missing data. First, let's see which variables have missing records:
+
+```{r Missing counts}
+gg_miss_var(df)
+```
+
+**Bias Observation #1**: Approximately half of our records are missing information about the race and sex of the perpetrator, while the victims' race and sex is never missing. We need to keep this bias in the data in mind when analyzing perpetrator-victim dynamics. This bias is somewhat intuitive: crimes are reported by victims, not perpetrators.
+
+Broadly, there are three types of missing data: missing completely at random (MCAR), missing at random (MAR), and missing not at random (MNAR). MCAR is the easiest to deal with since it means that our data are really just a random sample of a theoretical, more complete dataset. MAR is a bit tricker and refers to data that are missing due to the another observed variable in our dataset. For example, in weather data, we might be missing humidity measurements only at high temperatures (also recorded in our dataset) due to the equipment failing in high heat environments. We can correct for MAR with some statistical care. MNAR is the worst case scenario: the missing data are caused by something not captured in our dataset. This is not possible to fix without adding more data that explain the problematic pattern in the missing records. 
+
+```{r Spatial missing data}
+df |> 
+  mutate(missing_perp_info = is.na(perp_sex) | is.na(perp_age_group) | is.na(perp_race)) |> 
+  filter(!is.na(longitude)) |> 
+  ggplot(aes(x = longitude, y = latitude, color = missing_perp_info)) + 
+  geom_point(alpha = 0.5, shape = 1) # TODO 260321 Use ggmap for a better understanding of where the water is
+```
+
+
+```{r upset plot, warning=false}
+gg_miss_upset(df) # TODO 260321_1139 Explain this 
+```
+
 
 # Session Info
 Please see below for information about the specific versions of the packages used to create this report. 
