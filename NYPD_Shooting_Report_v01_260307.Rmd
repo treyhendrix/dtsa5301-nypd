@@ -3,7 +3,7 @@ title: NYPD Shooting Incident Data Report
 author: Trey Hendrix
 date: |
   Date Created: 260307
-  Date Modified: 260321
+  Date Modified: 260322
 output: 
   html_document:
     toc: true
@@ -127,17 +127,42 @@ The name of the `naniar` package is a reference to C.S. Lewis' Narnia fantasy bo
 
 Broadly, there are three types of missing data: missing completely at random (MCAR), missing at random (MAR), and missing not at random (MNAR). MCAR is the easiest to deal with since it means that our data are really just a random sample of a theoretical, more complete dataset. MAR is a bit tricker and refers to data that are missing due to the another observed variable in our dataset. For example, in weather data, we might be missing humidity measurements only at high temperatures (also recorded in our dataset) due to the equipment failing in high heat environments. We can correct for MAR with some statistical care. MNAR is the worst case scenario: the missing data are caused by something not captured in our dataset. This is not possible to fix without adding more data that explain the problematic pattern in the missing records. 
 
+```{r ggplot theme}
+# I will reuse this theme throughout this report for graphs
+cbw_theme <- theme_bw() +  # cbw = centered black and white theme
+  theme(plot.title = element_text(hjust = 0.5))
+
+cbw_rotated_theme <- function(angle = 45) { # rotate x-axis text 
+  cbw_theme + 
+  theme(axis.text.x = element_text(angle = angle))
+  }
+```
+
+
 ```{r Spatial missing data}
 df |> 
   filter(!is.na(longitude)) |> 
+  mutate(missing_perp_info = ifelse(missing_perp_info, "Missing Perp Info", "Not Missing Perp Info")) |> 
   ggplot(aes(x = longitude, y = latitude, color = missing_perp_info)) + 
-  geom_point(alpha = 0.5, shape = 1) # TODO 260321 Use ggmap for a better understanding of where the water is
+  geom_point(alpha = 0.5, shape = 1) + 
+  cbw_theme + 
+  labs(
+    title = "Map of Missing Perp Information", 
+    x = "Longitude", 
+    y = "Latitude", 
+    color = ""
+  ) + 
+  scale_color_manual(values = c("Not Missing Perp Info" = "#35b701", "Missing Perp Info" = "#9f2b00"))
 ```
+
+Staten Island jumps out as... 
 
 ```{r Missing perp by Borro}
 df |> 
   group_by(boro) |> 
   summarize(mean_missing_perp_info = mean(missing_perp_info)) |> 
+  ungroup() |> 
+  mutate(boro = fct_reorder(boro, mean_missing_perp_info, .desc = TRUE)) |> 
   ggplot(aes(x = boro, y = mean_missing_perp_info)) + 
   geom_col()
 ```
