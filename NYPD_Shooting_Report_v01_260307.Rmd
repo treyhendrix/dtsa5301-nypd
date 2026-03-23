@@ -3,7 +3,7 @@ title: NYPD Shooting Incident Data Report
 author: Trey Hendrix
 date: |
   Date Created: 260307
-  Date Modified: 260322
+  Date Modified: 260323
 output: 
   html_document:
     toc: true
@@ -28,6 +28,7 @@ library(tidyverse)
 library(kableExtra) # for more aesthetic and customizable data tables
 library(jsonlite) # for parsing JSON metadata 
 library(naniar) # for visualizing and analyzing missing data
+library(scales) # for graph labels
 ```
 
 ```{r R version check, include=FALSE}
@@ -83,7 +84,8 @@ df <- raw_df |>
     across( # clean up NA values stored as strings 
       where(is.character), 
       .fn = function(x) {ifelse(x %in% null_str_values, NA_character_, x)}
-      )
+      ), 
+    precinct = as.character(precinct) # These are not meaningful as integers (they are categories)
   ) |> 
   select(-c(x_coord_cd, y_coord_cd)) # drop unwanted columns
 
@@ -132,9 +134,9 @@ Broadly, there are three types of missing data: missing completely at random (MC
 cbw_theme <- theme_bw() +  # cbw = centered black and white theme
   theme(plot.title = element_text(hjust = 0.5))
 
-cbw_rotated_theme <- function(angle = 45) { # rotate x-axis text 
+cbw_rotated_theme <- function(angle = -45, hjust = 0, vjust = 1) { # rotate x-axis text 
   cbw_theme + 
-  theme(axis.text.x = element_text(angle = angle))
+  theme(axis.text.x = element_text(angle = angle, hjust = hjust, vjust = vjust))
   }
 ```
 
@@ -152,7 +154,8 @@ df |>
     y = "Latitude", 
     color = ""
   ) + 
-  scale_color_manual(values = c("Not Missing Perp Info" = "#35b701", "Missing Perp Info" = "#9f2b00"))
+  scale_color_manual(values = c("Not Missing Perp Info" = "#35b701", "Missing Perp Info" = "#9f2b00")) + 
+  theme(legend.position = "bottom")
 ```
 
 Staten Island jumps out as... 
@@ -164,16 +167,60 @@ df |>
   ungroup() |> 
   mutate(boro = fct_reorder(boro, mean_missing_perp_info, .desc = TRUE)) |> 
   ggplot(aes(x = boro, y = mean_missing_perp_info)) + 
-  geom_col()
+  geom_col(fill = "darkblue") + 
+  labs(
+    x = "Boro", 
+    y = "Percent Records Missing Perp Info", 
+    title = "Missing Perp Info by Boro"
+  ) + 
+  scale_y_continuous(labels = label_percent(), breaks = pretty_breaks(n = 10)) + 
+  cbw_rotated_theme()
 ```
+
+These are fairly substantial differences between the Boros. To make sure this isn't driven by a handful of outliers, let's check the same style plot but with precincts. I will color the bars by Boro: 
 
 ```{r Missing perp by precinct}
 df |> 
   group_by(precinct, boro) |> 
-  summarize(mean_missing_perp_info = mean(missing_perp_info)) |> 
-  ggplot(aes(x = as.character(precinct), y = mean_missing_perp_info, fill = boro)) + 
-  geom_col()
+  summarize(mean_missing_perp_info = mean(missing_perp_info), .groups = "drop") |> 
+  mutate(precinct = fct_reorder(precinct, mean_missing_perp_info, .desc = TRUE)) |> 
+  ggplot(aes(x = precinct, y = mean_missing_perp_info, fill = boro)) + 
+  geom_col() + 
+  cbw_theme +
+  theme(
+    axis.text.x = element_blank(), # Too many precincts to show labels
+    axis.ticks.x = element_blank(),
+    legend.position = "bottom"
+  ) + 
+  labs(
+    x = "Precinct", 
+    y = "Percent Records Missing Perp Info", 
+    title = "Missing Perp Info by Precinct", 
+    fill = ""
+  ) + 
+  scale_y_continuous(
+    labels = label_percent(),
+    breaks = pretty_breaks(n = 10)
+  )
 ```
+
+Since we see a fairly consistent clumping of colors, I will continue using a Boro-level analysis.
+
+```{r Boro models}
+# Set reference levels for our categorical variables
+mod_df <- df |> 
+  mutate(
+    vic_race = relevel(as.factor(vic_race), ref = "WHITE"), 
+    boro = relevel(as.factor(boro), ref = "MANHATTAN")
+  )
+
+boro_race_glm <- glm(missing_perp_info ~ boro + vic_race, data = df, family = "binomial")
+summary(boro_race_glm)
+
+df |> 
+  count(vic_race) # sanity check: way too few AMERICAN INDIAN records to be useful
+```
+
 
 ```{r Missing perp by victim}
 df |> 
