@@ -123,11 +123,9 @@ df <- df |>
 ```
 
 
-# Analysis 1 - The Shadow World of Perps
+# Analysis 2 - Racial Disparities 
 
-The name of the `naniar` package is a reference to C.S. Lewis' Narnia fantasy book series. The package's author sees missing data like the mythical realm of Narnia, a hidden other dimension to our data ([source](https://cran.r-project.org/web/packages/naniar/readme/README.html))...
-
-Broadly, there are three types of missing data: missing completely at random (MCAR), missing at random (MAR), and missing not at random (MNAR). MCAR is the easiest to deal with since it means that our data are really just a random sample of a theoretical, more complete dataset. MAR is a bit tricker and refers to data that are missing due to the another observed variable in our dataset. For example, in weather data, we might be missing humidity measurements only at high temperatures (also recorded in our dataset) due to the equipment failing in high heat environments. We can correct for MAR with some statistical care. MNAR is the worst case scenario: the missing data are caused by something not captured in our dataset. This is not possible to fix without adding more data that explain the problematic pattern in the missing records. 
+At a first glance, one of the most striking features of this dataset are that... 
 
 ```{r ggplot theme}
 # I will reuse this theme throughout this report for graphs
@@ -139,6 +137,33 @@ cbw_rotated_theme <- function(angle = -45, hjust = 0, vjust = 1) { # rotate x-ax
   theme(axis.text.x = element_text(angle = angle, hjust = hjust, vjust = vjust))
   }
 ```
+
+```{r Racial joint distribution plot}
+
+df |> 
+  filter(!is.na(perp_race)) |> 
+  group_by(vic_race, perp_race) |> 
+  summarize(cases = n(), .groups = "drop") |> 
+  mutate(percent_cases = cases/sum(cases)) |> 
+  ggplot(aes(x = vic_race, y = perp_race, fill = percent_cases)) + 
+  geom_tile() + 
+  cbw_rotated_theme() + 
+  labs(
+    x = "Victim Race", 
+    y = "Perp Race (when known)", 
+    title = "Victim-Perp Racial Intersection", 
+    fill = "Percent of Shooting Incidents"
+  ) +
+  scale_fill_viridis_c(option = "magma")
+
+```
+
+
+# Analysis 2 - The Shadow World of Perps
+
+The name of the `naniar` package is a reference to C.S. Lewis' Narnia fantasy book series. The package's author sees missing data like the mythical realm of Narnia, a hidden other dimension to our data ([source](https://cran.r-project.org/web/packages/naniar/readme/README.html))...
+
+Broadly, there are three types of missing data: missing completely at random (MCAR), missing at random (MAR), and missing not at random (MNAR). MCAR is the easiest to deal with since it means that our data are really just a random sample of a theoretical, more complete dataset. MAR is a bit tricker and refers to data that are missing due to the another observed variable in our dataset. For example, in weather data, we might be missing humidity measurements only at high temperatures (also recorded in our dataset) due to the equipment failing in high heat environments. We can correct for MAR with some statistical care. MNAR is the worst case scenario: the missing data are caused by something not captured in our dataset. This is not possible to fix without adding more data that explain the problematic pattern in the missing records. 
 
 
 ```{r Spatial missing data}
