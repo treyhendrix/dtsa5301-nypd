@@ -127,6 +127,34 @@ df <- df |>
 
 At a first glance, one of the most striking features of this dataset are that... 
 
+Before we get started, I'll check that all of the racial groups are reasonablly well represented in the data with a couple quick crosstabs:
+```{r}
+quick_crosstab <- function(var) {
+  df |> 
+  count(.data[[var]]) |> 
+  mutate(
+    percent = n/sum(n), 
+    percent = paste0(round(percent * 100, 1), "%")
+  ) |> 
+  arrange(n) |> 
+  kbl() |> 
+  kable_classic_2(full_width = FALSE)
+}
+
+quick_crosstab("vic_race")
+quick_crosstab("perp_race")
+
+
+```
+
+Again, we see that the most common race of the perpetrator is unknown... Additionally, there are too few "AMERICAN INDIAN/ALASKAN NATIVE" records to do meaningful analysis and comparisons, so I will drop those records. 
+
+```{r Dropping native records}
+racial_df <- df |> 
+  filter(vic_race != "AMERICAN INDIAN/ALASKAN NATIVE" & perp_race != "AMERICAN INDIAN/ALASKAN NATIVE")
+```
+
+
 ```{r ggplot theme}
 # I will reuse this theme throughout this report for graphs
 cbw_theme <- theme_bw() +  # cbw = centered black and white theme
@@ -140,23 +168,50 @@ cbw_rotated_theme <- function(angle = -45, hjust = 0, vjust = 1) { # rotate x-ax
 
 ```{r Racial joint distribution plot}
 
-df |> 
+racial_df |> 
   filter(!is.na(perp_race)) |> 
   group_by(vic_race, perp_race) |> 
   summarize(cases = n(), .groups = "drop") |> 
   mutate(percent_cases = cases/sum(cases)) |> 
   ggplot(aes(x = vic_race, y = perp_race, fill = percent_cases)) + 
   geom_tile() + 
-  cbw_rotated_theme() + 
+  cbw_rotated_theme(angle = -25) + 
   labs(
     x = "Victim Race", 
     y = "Perp Race (when known)", 
-    title = "Victim-Perp Racial Intersection", 
-    fill = "Percent of Shooting Incidents"
+    title = "Victim-Perp Racial Heatmap", 
+    fill = "Percent Incidents"
   ) +
-  scale_fill_viridis_c(option = "magma")
+  scale_fill_viridis_c(
+    label = label_percent(), 
+    option = "magma", 
+    guide = guide_colorbar( # Make the color bar less squished
+      barwidth = unit(20, "lines"), 
+      barheight = unit("0.5", "lines")
+    )
+  ) +
+  theme(legend.position = "bottom", legend.justification = "left")
 
 ```
+
+To contextualize this dramatic result, I will use 2020 US census data to understand how racial makeup of NYC. The data are available via the [census.gov](https://data.census.gov/table/DECENNIALCD1182020.P9?t=Race+and+Ethnicity&g=500XX00US3605,3606,3607,3608,3609,3610,3611,3612,3613,3614,3615&y=2020) webpage. I am able to approximate the NYC area by selecting congressional districts 5-15 [source](https://en.wikipedia.org/wiki/New_York%27s_congressional_districts). Conveniently, census.gov provides an API URL to access these data, which I have done below. 
+
+```{r Census data}
+census_api_url <- "https://api.census.gov/data/2020/dec/cd118?get=group(P9)&ucgid=5001800US3605,5001800US3606,5001800US3607,5001800US3608,5001800US3609,5001800US3610,5001800US3611,5001800US3612,5001800US3613,5001800US3614,5001800US3615"
+census_raw_df <- read_csv(census_api_url)
+census_raw_df
+
+census_meta_list <- fromJSON("https://api.census.gov/data/2020/dec/cd118") # TODO This is a JSON... decide whether this is worth it to clean these data
+# Consider using the tidycensus package too... 
+census_vars_list <- fromJSON(census_meta_list$dataset$c_variablesLink)
+census_vars_list$variables <- census_vars_list$variables[!names(census_vars_list$variables) %in% c("for", "in", "ucgid")]
+
+census_vars_df <- as_tibble(census_vars_list$variables)
+
+# New idea: use NYC open data xlsx file URL: https://www1.nyc.gov/assets/planning/download/office/data-maps/nyc-population/acs/demo_2016acs5yr_nyc.xlsx
+# General URL https://data.cityofnewyork.us/City-Government/Demographic-and-Housing-Profiles-by-Borough/cu9u-3r5e/about_data
+```
+
 
 
 # Analysis 2 - The Shadow World of Perps
@@ -241,9 +296,6 @@ mod_df <- df |>
 
 boro_race_glm <- glm(missing_perp_info ~ boro + vic_race, data = df, family = "binomial")
 summary(boro_race_glm)
-
-df |> 
-  count(vic_race) # sanity check: way too few AMERICAN INDIAN records to be useful
 ```
 
 
