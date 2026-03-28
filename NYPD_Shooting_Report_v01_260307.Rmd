@@ -21,7 +21,7 @@ knitr::opts_chunk$set(
 
 # Introduction
 
-This report analyzes the...
+In this report, I analyze [the historic NYPD shooting incident dataset from data.gov](https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic). I focus on the demographics of shooters and victims and explore the implications of missing perpetrator information. 
 
 ```{r Packages}
 library(tidyverse)
@@ -91,23 +91,20 @@ df <- raw_df |>
 
 ```
 
-
-A few of our variable might also be better stored as ordinal values (i.e., factors in R) since they have a natural ordering. I take care of that below.
-
-```{r Recoding factors}
-# TODO 260321_1119 Return and do this 
-```
-
 ## Missing Data
 
 From the previous `glimpse` call above, it is clear that many records have missing values. The `naniar` R package is my favorite way to understand patterns in missing data. First, let's see which variables have missing records:
 
 ```{r Missing counts}
 gg_miss_var(df)
-miss_var_summary(df)
+df |> 
+  miss_var_summary() |> 
+  mutate(pct_miss = str_glue("{as.numeric(round(pct_miss, 1))}%")) |> # drop the odd S3 data type
+  kable() |> 
+  kable_classic_2(full_width = FALSE)
 ```
 
-Fortunately, the majority of records only have a small portion of missing records for most variables (`longitude` to `boro` in the graph above). These variables are also fairly essential/fundamental to understanding a crime that I feel comfortable dropping any records that are missing these information. However, a handful of variables are frequently missing. The location information `loc_classfctn_desc` and `loc_of_occur_desc` are missing too frequently to be informative, so I will largely ignore them. `location_desc` is available for 40% of records while information about the perpetrator (`perp_age_group`, `perp_race`, and `perp_sex`) are available for the majority of incidents. I am interested in digging into this pattern of missing data and will do so in [the first analysis section](# Analysis 1 - The Shadow World of Perps), so I will not drop or impute these data.
+Fortunately, the majority of records only have a small portion of missing records for most variables (`longitude` to `boro` in the graph above). These variables are also fairly essential/fundamental to understanding a crime that I feel comfortable dropping any records that are missing these information. However, a handful of variables are frequently missing. The location information `loc_classfctn_desc` and `loc_of_occur_desc` are missing too frequently to be informative, so I will largely ignore them. `location_desc` is available for 40% of records while information about the perpetrator (`perp_age_group`, `perp_race`, and `perp_sex`) are available for the majority of incidents. I am interested in digging into this pattern of missing data and will do so in [the second analysis section](# Analysis 2 - The Shadow World of Perps), so I will not drop or impute these data.
 
 
 **Bias Observation #1**: Approximately half of our records are missing information about the race and sex of the perpetrator, while the victims' race and sex is never missing. We need to keep this bias in the data in mind when analyzing perpetrator-victim dynamics. This bias is somewhat intuitive: crimes are reported by victims, not perpetrators.
@@ -123,14 +120,13 @@ df <- df |>
 ```
 
 
-# Analysis 2 - Racial Disparities 
+# Analysis 1 - Racial Disparities 
 
-At a first glance, one of the most striking features of this dataset are that... 
+At a first glance, one of the most striking features of this dataset that I came across relate to racial disparities. Before we get started, I'll check that all of the racial groups are reasonably well represented in the data with a couple quick cross tabs:
 
-Before we get started, I'll check that all of the racial groups are reasonablly well represented in the data with a couple quick crosstabs:
-```{r}
-quick_crosstab <- function(var) {
-  df |> 
+```{r Racial crosstabs}
+quick_crosstab <- function(var, focal_df = df) {
+  focal_df |> 
   count(.data[[var]]) |> 
   mutate(
     percent = n/sum(n), 
@@ -141,18 +137,43 @@ quick_crosstab <- function(var) {
   kable_classic_2(full_width = FALSE)
 }
 
-quick_crosstab("vic_race")
-quick_crosstab("perp_race")
+quick_crosstab("vic_race", df)
+quick_crosstab("perp_race", df)
 
 
 ```
 
-Again, we see that the most common race of the perpetrator is unknown... Additionally, there are too few "AMERICAN INDIAN/ALASKAN NATIVE" records to do meaningful analysis and comparisons, so I will drop those records. 
+Again, we see that the most common race of the perpetrator is unknown. We will revisit this observation in the next section and, for now, focus on observations when complete perpetrator information. Additionally, there are too few "AMERICAN INDIAN/ALASKAN NATIVE" records to do meaningful analysis and comparisons, so I will drop those records. 
 
 ```{r Dropping native records}
 racial_df <- df |> 
   filter(vic_race != "AMERICAN INDIAN/ALASKAN NATIVE" & perp_race != "AMERICAN INDIAN/ALASKAN NATIVE")
+
+racial_known_df <- racial_df |> 
+  filter(!is.na(perp_race))
 ```
+
+Let's take another look at the perpetrator cross tab with the missing perp information filtered out: 
+
+```{r Known racial crosstabs}
+quick_crosstab("perp_race", racial_known_df)
+```
+
+```{r}
+# Calculate the date range for the dataset of the statement below
+min_year <- df$occur_date |> 
+  year() |> 
+  min()
+
+max_year <- df$occur_date |> 
+  year() |> 
+  max()
+```
+
+
+A quick consultation with the [Wikipedia page Race and Ethnicity in New York City](https://en.wikipedia.org/wiki/Race_and_ethnicity_in_New_York_City) suggests that the demographics of shooting victims and perpetrators is inconsistent with that of NYC as a whole. Most dramatically, during the time period of our dataset (`r str_glue("{min_year} to {max_year}")`), we can approximate from the census data reported on the Wikipedia page that 1 in 4 NYC residents is black. However, our cross tab below shows that 7 out of 10 shooting victims is black, and 2 out of 3 known shooting perpetrators is black. 
+
+**Bias Observation #2** As stated above, we have uncovered...
 
 
 ```{r ggplot theme}
@@ -168,7 +189,7 @@ cbw_rotated_theme <- function(angle = -45, hjust = 0, vjust = 1) { # rotate x-ax
 
 ```{r Racial joint distribution plot}
 
-racial_df |> 
+racial_known_df |> 
   filter(!is.na(perp_race)) |> 
   group_by(vic_race, perp_race) |> 
   summarize(cases = n(), .groups = "drop") |> 
@@ -193,26 +214,6 @@ racial_df |>
   theme(legend.position = "bottom", legend.justification = "left")
 
 ```
-
-To contextualize this dramatic result, I will use 2020 US census data to understand how racial makeup of NYC. The data are available via the [census.gov](https://data.census.gov/table/DECENNIALCD1182020.P9?t=Race+and+Ethnicity&g=500XX00US3605,3606,3607,3608,3609,3610,3611,3612,3613,3614,3615&y=2020) webpage. I am able to approximate the NYC area by selecting congressional districts 5-15 [source](https://en.wikipedia.org/wiki/New_York%27s_congressional_districts). Conveniently, census.gov provides an API URL to access these data, which I have done below. 
-
-```{r Census data}
-census_api_url <- "https://api.census.gov/data/2020/dec/cd118?get=group(P9)&ucgid=5001800US3605,5001800US3606,5001800US3607,5001800US3608,5001800US3609,5001800US3610,5001800US3611,5001800US3612,5001800US3613,5001800US3614,5001800US3615"
-census_raw_df <- read_csv(census_api_url)
-census_raw_df
-
-census_meta_list <- fromJSON("https://api.census.gov/data/2020/dec/cd118") # TODO This is a JSON... decide whether this is worth it to clean these data
-# Consider using the tidycensus package too... 
-census_vars_list <- fromJSON(census_meta_list$dataset$c_variablesLink)
-census_vars_list$variables <- census_vars_list$variables[!names(census_vars_list$variables) %in% c("for", "in", "ucgid")]
-
-census_vars_df <- as_tibble(census_vars_list$variables)
-
-# New idea: use NYC open data xlsx file URL: https://www1.nyc.gov/assets/planning/download/office/data-maps/nyc-population/acs/demo_2016acs5yr_nyc.xlsx
-# General URL https://data.cityofnewyork.us/City-Government/Demographic-and-Housing-Profiles-by-Borough/cu9u-3r5e/about_data
-```
-
-
 
 # Analysis 2 - The Shadow World of Perps
 
