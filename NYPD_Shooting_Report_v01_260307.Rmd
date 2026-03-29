@@ -286,6 +286,21 @@ racial_known_df |>
   )
 ```
 
+However, we should be cautious about flagging these two groups, especially Asian/Pacific islander since they have much less representation in our dataset, which means our residuals might just be volatile rather than genuinely large. Additionally, it is important to reiterate that we have still not uncovered the "cause" of shootings in NYC. For example, due to the history of racial segregation in the US, the race of a perpetrator might be a proxy of some other variable. If most victims are shot near their homes, then the race of the perpetrator might be most explained by that simple fact. We can see evidence of this racial segregation in our dataset:
+
+```{r vic race map}
+racial_known_df |> 
+  ggplot(aes(x = longitude, y = latitude, color = vic_race)) + 
+  geom_point(shape = 1) + 
+  theme_void() + 
+  labs(title = "Map of Victim Race", color = "") + 
+  theme(
+    legend.position = "bottom", 
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+
+
 Overall, we have found a statistical association between the race of victims and perpetrators driven by higher than expected rates of intraracial shootings. This analysis reminds me of the importance of having specific statistical hypotheses and interrogating initial results and visualizations. 
 
 # Analysis 2 - The Hidden World of Perps
