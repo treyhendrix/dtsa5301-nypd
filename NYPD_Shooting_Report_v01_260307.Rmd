@@ -104,7 +104,7 @@ df |>
   kable_classic_2(full_width = FALSE)
 ```
 
-Fortunately, the majority of records only have a small portion of missing records for most variables (`longitude` to `boro` in the graph above). These variables are also fairly essential/fundamental to understanding a crime that I feel comfortable dropping any records that are missing these information. However, a handful of variables are frequently missing. The location information `loc_classfctn_desc` and `loc_of_occur_desc` are missing too frequently to be informative, so I will largely ignore them. `location_desc` is available for 40% of records while information about the perpetrator (`perp_age_group`, `perp_race`, and `perp_sex`) are available for the majority of incidents. I am interested in digging into this pattern of missing data and will do so in [the second analysis section](# Analysis 2 - The Shadow World of Perps), so I will not drop or impute these data.
+Fortunately, the majority of records only have a small portion of missing records for most variables (`longitude` to `boro` in the graph above). These variables are also fairly essential/fundamental to understanding a crime that I feel comfortable dropping any records that are missing these information. However, a handful of variables are frequently missing. The location information `loc_classfctn_desc` and `loc_of_occur_desc` are missing too frequently to be informative, so I will largely ignore them. `location_desc` is available for 40% of records while information about the perpetrator (`perp_age_group`, `perp_race`, and `perp_sex`) are available for the majority of incidents. I am interested in digging into this pattern of missing data and will do so in [the second analysis section](# Analysis 2 - The Hidden World of Perps), so I will not drop or impute these data.
 
 
 **Bias Observation #1**: Approximately half of our records are missing information about the race and sex of the perpetrator, while the victims' race and sex is never missing. We need to keep this bias in the data in mind when analyzing perpetrator-victim dynamics. This bias is somewhat intuitive: crimes are reported by victims, not perpetrators.
@@ -175,9 +175,9 @@ A quick consultation with the [Wikipedia page Race and Ethnicity in New York Cit
 
 **Bias Observation #2** As stated above, we have uncovered a prominent racial bias in these shooting incident data. Assuming these data are representative, this amounts to both a statistical bias and a institutional racial bias. However, I want to be careful and acknowledge my personal biases in this case, the complexity of the data, and reframe my research question in light of this. 
 
-1. With these kind of data, it is important to reiterate the adage "correlation is not causation." To understand the drivers of violent crime, we can't look at a single variable in isolation, even when we spot a...
-2. 
-3. 
+1. With these kind of data, it is important to reiterate the adage "correlation is not causation." To understand the drivers of violent crime, we can't look at a single variable in isolation, even when we spot an eye catching pattern. Race and crime in the US is a complex and controversial topic. I do not feel that I have the expertise to expound on the topic. However, [this Wikipedia article on US race and crime](https://en.wikipedia.org/wiki/Race_and_crime_in_the_United_States) is a good introduction to the topic for those interested. In short, for this dataset, if we want to understand the drivers of shooting incidents, we only have a handful of variables (e.g., victim and perp race), but academic research has indicated that a plethora of factors may drive this violence: socioeconomic class, education, housing segregation, and even lead pollution. Most of these are not present in our dataset.
+2. Although I want to be measured in my approach to this analysis, I recognize that I personally believe that systemic racism is an important factor in violent crime and policing in the US. This is likely why I choose to look at `vic_race` and `perp_race` as the first analysis of my project.
+3. In light of #1 and #2 above, I think it is appropriate to narrow my analysis and ask a more specific question that the data are appropriate for: **given the overrepresentation of certain demographic groups in our data, is these an association between the races of known perpetrators and victims? In other words, are shooting incidents more inter- (between races) or intraracial (within a race) than we might expect?**
 
 Given this new focus, let's visualize the joint distribution of our victim and prepetrator data demographic data with a heatmap: 
 
@@ -227,52 +227,43 @@ racial_known_df |>
 
 ```
 
-Here, the black-black combination accounts for more than half of incidents, suggesting a lack of statistical independence between victim and perpetrator race. However, we can formally test this with a chi-squared model. 
+Here, the black-black combination stands out as accounting for more than half of incidents, suggesting a lack of statistical independence between victim and perpetrator race. However, we need to remember that this group is overrepresented in the data in general, so we should formally test this with a chi-squared model. 
 
 ```{r chi squared}
 chi_model <- chisq.test(racial_known_df$vic_race, racial_known_df$perp_race)
 print(chi_model)
 ```
 
-This p-value is highly significant, indicating a statistical association between victim and perpetrator race. We can visualize the observed and expected counts to understand which groups influenced this result the most: 
+This p-value is highly significant, indicating a statistical association between victim and perpetrator race. We can visualize the model's Pearson residuals to understand which groups influenced this result the most. These residuals follow the formula: (observed - expected) / sqrt(expected). The residuals are, thus, standardized, with positive values indicating that more incidents of a particular racial combination occurred than expected while negative values suggest fewer incidents than expected occurred.
 
 ```{r chi squared observed vs. expected}
-racial_known_expected_counts_df <- chi_model$expected |> 
+chi_resid_df <- chi_model$residuals |> 
   as.data.frame() |> 
-  rownames_to_column(var = "vic_race") |> 
-  pivot_longer(
-    cols = -vic_race, 
-    names_to = "perp_race", 
-    values_to = "n"
-  ) |> 
-  mutate(type = "expected")
-  
-  
+  rename(
+    vic_race = "racial_known_df.vic_race", 
+    perp_race = "racial_known_df.perp_race", 
+    st_resid = "Freq"
+  )
 
-racial_known_counts_df <- racial_known_df |> 
-  count(vic_race, perp_race) |> 
-  mutate(type = "observed") |> 
-  bind_rows(racial_known_expected_counts_df)
-
-racial_known_counts_df |> 
+chi_resid_df |> 
+  mutate(type = ifelse(vic_race == perp_race, "Intraracial", "Interracial")) |> 
   mutate(vic_race = paste(vic_race, "VICTIMS")) |> 
-  ggplot(aes(x = perp_race, y = n, color = type)) + 
+  ggplot(aes(x = perp_race, y = st_resid, color = type)) + 
     geom_point() + 
     facet_wrap(~vic_race, ncol = 2) + 
     cbw_rotated_theme() + 
     labs(
       title = "Observed vs. Expected Victim and Perp Combinations by Race", 
       x = "Perp Race", 
-      y = "Count of Incidents", 
-      color = 
-    )
+      y = "Pearson Residuals", 
+      color = ""
+    ) + 
+  scale_color_manual(values = c("Interracial" = "darkblue", "Intraracial" = "darkred"))
 ```
 
+One pattern that arises from these residuals is that a larger number than expected of intraracial (the victim and perpetrator belong to the same demographic group) incidents is most responsible for the statistical dependence between victim and perpetrator race. Furthermore, the largest residuals come from the unexpectedly high rates of intraracial shootings involving asian/Pacific islander and white groups. I was somewhat surprised by this result since the rate of intraracial shootings is not particularly pronounced within these two groups:
 
-
-Furthermore, for the other demographic groups, it seems like To dig into this further, we can visualize the percent of shooting incidents that are intraracial (the victim and perpetrator belong to the same demographic group) vs. interracial.
-
-```{r intra and interracial heatmap}
+```{r intra percent plots}
 racial_known_df |> 
   group_by(vic_race) |> 
   summarize(intraracial_percent = mean(vic_race == perp_race), .groups = "drop") |> 
@@ -295,12 +286,11 @@ racial_known_df |>
   )
 ```
 
-This plot indicates that intraracial violence makes up the vast majority of shootings when the victim is black, but this is not true of any other racial groups, where the interracial violence is the most common. 
+Overall, we have found a statistical association between the race of victims and perpetrators driven by higher than expected rates of intraracial shootings. This analysis reminds me of the importance of having specific statistical hypotheses and interrogating initial results and visualizations. 
 
+# Analysis 2 - The Hidden World of Perps
 
-# Analysis 2 - The Shadow World of Perps
-
-The name of the `naniar` package is a reference to C.S. Lewis' Narnia fantasy book series. The package's author sees missing data like the mythical realm of Narnia, a hidden other dimension to our data ([source](https://cran.r-project.org/web/packages/naniar/readme/README.html))...
+The name of the `naniar` package is a reference to C.S. Lewis' Narnia fantasy book series. The package's author sees missing data like the mythical realm of Narnia, a hidden other dimension to our data ([source](https://cran.r-project.org/web/packages/naniar/readme/README.html)). In many statistical analyses, there is a tendency to immediately drop records with missing data and then proceed with further analyses. This can be a critical mistake depending on the type of missing data we are dealing with.
 
 Broadly, there are three types of missing data: missing completely at random (MCAR), missing at random (MAR), and missing not at random (MNAR). MCAR is the easiest to deal with since it means that our data are really just a random sample of a theoretical, more complete dataset. MAR is a bit tricker and refers to data that are missing due to the another observed variable in our dataset. For example, in weather data, we might be missing humidity measurements only at high temperatures (also recorded in our dataset) due to the equipment failing in high heat environments. We can correct for MAR with some statistical care. MNAR is the worst case scenario: the missing data are caused by something not captured in our dataset. This is not possible to fix without adding more data that explain the problematic pattern in the missing records. 
 
