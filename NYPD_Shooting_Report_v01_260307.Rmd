@@ -173,8 +173,13 @@ max_year <- df$occur_date |>
 
 A quick consultation with the [Wikipedia page Race and Ethnicity in New York City](https://en.wikipedia.org/wiki/Race_and_ethnicity_in_New_York_City) suggests that the demographics of shooting victims and perpetrators is inconsistent with that of NYC as a whole. Most dramatically, during the time period of our dataset (`r str_glue("{min_year} to {max_year}")`), we can approximate from the census data reported on the Wikipedia page that 1 in 4 NYC residents is black. However, our cross tab below shows that 7 out of 10 shooting victims is black, and 2 out of 3 known shooting perpetrators is black. 
 
-**Bias Observation #2** As stated above, we have uncovered...
+**Bias Observation #2** As stated above, we have uncovered a prominent racial bias in these shooting incident data. Assuming these data are representative, this amounts to both a statistical bias and a institutional racial bias. However, I want to be careful and acknowledge my personal biases in this case, the complexity of the data, and reframe my research question in light of this. 
 
+1. With these kind of data, it is important to reiterate the adage "correlation is not causation." To understand the drivers of violent crime, we can't look at a single variable in isolation, even when we spot a...
+2. 
+3. 
+
+Given this new focus, let's visualize the joint distribution of our victim and prepetrator data demographic data with a heatmap: 
 
 ```{r ggplot theme}
 # I will reuse this theme throughout this report for graphs
@@ -207,13 +212,91 @@ racial_known_df |>
     label = label_percent(), 
     option = "magma", 
     guide = guide_colorbar( # Make the color bar less squished
-      barwidth = unit(20, "lines"), 
+      barwidth = unit(15, "lines"), 
       barheight = unit("0.5", "lines")
     )
   ) +
-  theme(legend.position = "bottom", legend.justification = "left")
+  theme(
+    legend.position = "bottom", 
+    legend.justification = "left",
+    plot.margin = margin( # Add to right margin to account for rotated x-axis text
+      t = 20, b = 20, l = 20, r = 40, 
+      unit = "pt"
+    ) 
+  )
 
 ```
+
+Here, the black-black combination accounts for more than half of incidents, suggesting a lack of statistical independence between victim and perpetrator race. However, we can formally test this with a chi-squared model. 
+
+```{r chi squared}
+chi_model <- chisq.test(racial_known_df$vic_race, racial_known_df$perp_race)
+print(chi_model)
+```
+
+This p-value is highly significant, indicating a statistical association between victim and perpetrator race. We can visualize the observed and expected counts to understand which groups influenced this result the most: 
+
+```{r chi squared observed vs. expected}
+racial_known_expected_counts_df <- chi_model$expected |> 
+  as.data.frame() |> 
+  rownames_to_column(var = "vic_race") |> 
+  pivot_longer(
+    cols = -vic_race, 
+    names_to = "perp_race", 
+    values_to = "n"
+  ) |> 
+  mutate(type = "expected")
+  
+  
+
+racial_known_counts_df <- racial_known_df |> 
+  count(vic_race, perp_race) |> 
+  mutate(type = "observed") |> 
+  bind_rows(racial_known_expected_counts_df)
+
+racial_known_counts_df |> 
+  mutate(vic_race = paste(vic_race, "VICTIMS")) |> 
+  ggplot(aes(x = perp_race, y = n, color = type)) + 
+    geom_point() + 
+    facet_wrap(~vic_race, ncol = 2) + 
+    cbw_rotated_theme() + 
+    labs(
+      title = "Observed vs. Expected Victim and Perp Combinations by Race", 
+      x = "Perp Race", 
+      y = "Count of Incidents", 
+      color = 
+    )
+```
+
+
+
+Furthermore, for the other demographic groups, it seems like To dig into this further, we can visualize the percent of shooting incidents that are intraracial (the victim and perpetrator belong to the same demographic group) vs. interracial.
+
+```{r intra and interracial heatmap}
+racial_known_df |> 
+  group_by(vic_race) |> 
+  summarize(intraracial_percent = mean(vic_race == perp_race), .groups = "drop") |> 
+  mutate(vic_race = fct_reorder(vic_race, intraracial_percent, .desc = TRUE)) |> 
+  ggplot(aes(x = vic_race, y = intraracial_percent)) + 
+    geom_col(fill = "darkblue") + 
+    cbw_rotated_theme() +
+    labs(
+      x = "Victim Race", 
+      y = "Intraracial Percent", 
+      title = "Intraracial Shooting Incidents by Victim Race"
+    ) + 
+  theme(plot.margin = margin(
+    t = 20, b = 20, l = 20, r = 40,
+    unit = "pt"
+  )) + 
+  scale_y_continuous(
+    labels = label_percent(), 
+    breaks = pretty_breaks(n = 10)
+  )
+```
+
+This plot indicates that intraracial violence makes up the vast majority of shootings when the victim is black, but this is not true of any other racial groups, where the interracial violence is the most common. 
+
 
 # Analysis 2 - The Shadow World of Perps
 
