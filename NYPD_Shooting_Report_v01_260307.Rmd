@@ -3,7 +3,7 @@ title: NYPD Shooting Incident Data Report
 author: Trey Hendrix
 date: |
   Date Created: 260307
-  Date Modified: 260323
+  Date Modified: 260330
 output: 
   html_document:
     toc: true
@@ -147,7 +147,8 @@ Again, we see that the most common race of the perpetrator is unknown. We will r
 
 ```{r Dropping native records}
 racial_df <- df |> 
-  filter(vic_race != "AMERICAN INDIAN/ALASKAN NATIVE" & perp_race != "AMERICAN INDIAN/ALASKAN NATIVE")
+  filter(is.na(vic_race) | vic_race != "AMERICAN INDIAN/ALASKAN NATIVE") |> 
+  filter(is.na(perp_race) | perp_race != "AMERICAN INDIAN/ALASKAN NATIVE") 
 
 racial_known_df <- racial_df |> 
   filter(!is.na(perp_race))
@@ -307,27 +308,40 @@ Overall, we have found a statistical association between the race of victims and
 
 The name of the `naniar` package is a reference to C.S. Lewis' Narnia fantasy book series. The package's author sees missing data like the mythical realm of Narnia, a hidden other dimension to our data ([source](https://cran.r-project.org/web/packages/naniar/readme/README.html)). In many statistical analyses, there is a tendency to immediately drop records with missing data and then proceed with further analyses. This can be a critical mistake depending on the type of missing data we are dealing with.
 
-Broadly, there are three types of missing data: missing completely at random (MCAR), missing at random (MAR), and missing not at random (MNAR). MCAR is the easiest to deal with since it means that our data are really just a random sample of a theoretical, more complete dataset. MAR is a bit tricker and refers to data that are missing due to the another observed variable in our dataset. For example, in weather data, we might be missing humidity measurements only at high temperatures (also recorded in our dataset) due to the equipment failing in high heat environments. We can correct for MAR with some statistical care. MNAR is the worst case scenario: the missing data are caused by something not captured in our dataset. This is not possible to fix without adding more data that explain the problematic pattern in the missing records. 
+Broadly, there are three types of missing data: **missing completely at random (MCAR), missing at random (MAR), and missing not at random (MNAR)**. MCAR is the easiest to deal with since it means that our data are really just a random sample of a theoretical, more complete dataset. MAR is a bit tricker and refers to data that are missing due to the another observed variable in our dataset. For example, in weather data, we might be missing humidity measurements only at high temperatures (also recorded in our dataset) due to the equipment failing in high heat environments. We can correct for MAR with some statistical care. MNAR is the worst case scenario: the missing data are caused by something not captured in our dataset. This is not possible to fix without adding more data that explain the problematic pattern in the missing records. 
 
+Given our previous focus on race, we can look at the percent of missing perp information by victim race. If the data are MCAR, then the rate should be roughly constant across groups:
 
-```{r Spatial missing data}
-df |> 
-  filter(!is.na(longitude)) |> 
-  mutate(missing_perp_info = ifelse(missing_perp_info, "Missing Perp Info", "Not Missing Perp Info")) |> 
-  ggplot(aes(x = longitude, y = latitude, color = missing_perp_info)) + 
-  geom_point(alpha = 0.5, shape = 1) + 
-  cbw_theme + 
+```{r Missing perp by race}
+racial_df |> 
+  group_by(vic_race) |> 
+  summarize(mean_missing_perp_info = mean(missing_perp_info), .groups = "drop") |> 
+  ungroup() |> 
+  mutate(vic_race = fct_reorder(vic_race, mean_missing_perp_info, .desc = TRUE)) |> 
+  ggplot(aes(x = vic_race, y = mean_missing_perp_info)) + 
+  geom_col(fill = "darkblue") + 
   labs(
-    title = "Map of Missing Perp Information", 
-    x = "Longitude", 
-    y = "Latitude", 
-    color = ""
+    x = "Victim Race", 
+    y = "Percent Records Missing Perp Info", 
+    title = "Missing Perp Info by Victim Race"
   ) + 
-  scale_color_manual(values = c("Not Missing Perp Info" = "#35b701", "Missing Perp Info" = "#9f2b00")) + 
-  theme(legend.position = "bottom")
+  scale_y_continuous(labels = label_percent(), breaks = pretty_breaks(n = 10)) + 
+  cbw_rotated_theme()
 ```
 
-Staten Island jumps out as... 
+These are substantial differences, but we can validate this with a logistic linear model. If victim race is a significant predictor of missing perp information, then our data are by definition MAR. For these models, I will set the reference... 
+
+```{r Boro models}
+# Set reference levels for our categorical variables
+mod_df <- racial_df |> 
+  mutate(
+    vic_race = relevel(as.factor(vic_race), ref = "BLACK"), 
+    boro = relevel(as.factor(boro), ref = "BROOKLYN")
+  )
+
+boro_race_glm <- glm(missing_perp_info ~ boro + vic_race, data = mod_df, family = "binomial")
+summary(boro_race_glm)
+```
 
 ```{r Missing perp by Borro}
 df |> 
@@ -336,7 +350,7 @@ df |>
   ungroup() |> 
   mutate(boro = fct_reorder(boro, mean_missing_perp_info, .desc = TRUE)) |> 
   ggplot(aes(x = boro, y = mean_missing_perp_info)) + 
-  geom_col(fill = "darkblue") + 
+  geom_col(fill = "darkgreen") + 
   labs(
     x = "Boro", 
     y = "Percent Records Missing Perp Info", 
@@ -346,60 +360,6 @@ df |>
   cbw_rotated_theme()
 ```
 
-These are fairly substantial differences between the Boros. To make sure this isn't driven by a handful of outliers, let's check the same style plot but with precincts. I will color the bars by Boro: 
-
-```{r Missing perp by precinct}
-df |> 
-  group_by(precinct, boro) |> 
-  summarize(mean_missing_perp_info = mean(missing_perp_info), .groups = "drop") |> 
-  mutate(precinct = fct_reorder(precinct, mean_missing_perp_info, .desc = TRUE)) |> 
-  ggplot(aes(x = precinct, y = mean_missing_perp_info, fill = boro)) + 
-  geom_col() + 
-  cbw_theme +
-  theme(
-    axis.text.x = element_blank(), # Too many precincts to show labels
-    axis.ticks.x = element_blank(),
-    legend.position = "bottom"
-  ) + 
-  labs(
-    x = "Precinct", 
-    y = "Percent Records Missing Perp Info", 
-    title = "Missing Perp Info by Precinct", 
-    fill = ""
-  ) + 
-  scale_y_continuous(
-    labels = label_percent(),
-    breaks = pretty_breaks(n = 10)
-  )
-```
-
-Since we see a fairly consistent clumping of colors, I will continue using a Boro-level analysis.
-
-```{r Boro models}
-# Set reference levels for our categorical variables
-mod_df <- df |> 
-  mutate(
-    vic_race = relevel(as.factor(vic_race), ref = "WHITE"), 
-    boro = relevel(as.factor(boro), ref = "MANHATTAN")
-  )
-
-boro_race_glm <- glm(missing_perp_info ~ boro + vic_race, data = df, family = "binomial")
-summary(boro_race_glm)
-```
-
-
-```{r Missing perp by victim}
-df |> 
-  group_by(vic_race) |> 
-  summarize(mean_missing_perp_info = mean(missing_perp_info)) |> 
-  ggplot(aes(x = vic_race, y = mean_missing_perp_info)) + 
-  geom_col()
-```
-
-
-```{r upset plot, warning=false}
-gg_miss_upset(df) # TODO 260321_1139 Explain this 
-```
 
 # Session Info
 Please see below for information about the specific versions of the packages used to create this report. 
