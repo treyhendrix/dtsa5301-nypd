@@ -3,7 +3,7 @@ title: NYPD Shooting Incident Data Report
 author: Trey Hendrix
 date: |
   Date Created: 260307
-  Date Modified: 260330
+  Date Modified: 260401
 output: 
   html_document:
     toc: true
@@ -329,18 +329,17 @@ racial_df |>
   cbw_rotated_theme()
 ```
 
-These are substantial differences, but we can validate this with a logistic linear model. If victim race is a significant predictor of missing perp information, then our data are by definition MAR. For these models, I will set the reference... 
+These are substantial differences, but we can validate this with a logistic linear model. If victim race is a significant predictor of missing perp information, then our data are by definition MAR. For these models, I will set the reference level to the most common classes in the model 
 
 ```{r Boro models}
 # Set reference levels for our categorical variables
 mod_df <- racial_df |> 
   mutate(
-    vic_race = relevel(as.factor(vic_race), ref = "BLACK"), 
-    boro = relevel(as.factor(boro), ref = "BROOKLYN")
+    vic_race = relevel(as.factor(vic_race), ref = "BLACK")
   )
 
-boro_race_glm <- glm(missing_perp_info ~ boro + vic_race, data = mod_df, family = "binomial")
-summary(boro_race_glm)
+race_glm <- glm(missing_perp_info ~ vic_race, data = mod_df, family = "binomial")
+summary(race_glm)
 ```
 
 ```{r Missing perp by Borro}
@@ -360,6 +359,28 @@ df |>
   cbw_rotated_theme()
 ```
 
+```{r boro lm}
+mod_df <- mod_df |> 
+  mutate(boro = relevel(as.factor(boro), ref = "BROOKLYN")) # most common Borough in dataset
+
+boro_glm <- glm(missing_perp_info ~ boro, data = mod_df, family = "binomial")
+summary(boro_glm)
+```
+
+
+```{r boro race mod}
+boro_race_glm <- glm(missing_perp_info ~ boro + vic_race, data = mod_df, family = "binomial")
+summary(boro_race_glm)
+```
+
+To supplement individual predictor p-values, we can use a likelihood ratio test to test if adding `boro` to our `vic_race` model significantly improves model fit:
+
+```{r model comparison}
+anova(boro_glm, boro_race_glm)
+```
+**Bias Observation #3**: Our missing perpetrator data are not missing completely at random (MCAR). This is a significant source of statistical bias that requires a different suite of tools and models. 
+
+In conclusion, we have observed that both borough and victim race are statistically correlated with our missing perpetrator data. This meets the definition of missing at random (MAR) and means that we cannot simply drop cases with missing perpetrator data and proceed normally. We need to adjust for this "hidden" world of missing perpetrators using methods such as [multiple imputation](https://www.publichealth.columbia.edu/research/population-health-methods/missing-data-and-multiple-imputation). This applies to our previous analysis, [Analysis #1 - Racial Disparities]. I previously reported a statistical association between victim and perpetrator race for known perpetrators. However, a more accurate way to express this is: a statistical association between victim and perpetrator race for known perpetrators in this dataset in which missing perpetrator information is in turn associated with borough and victim race. This is messier, less compelling, and a preliminary result calling for a more complex analysis. Nevertheless, responsible data science often means careful language and incremental, iterative analyses. 
 
 # Session Info
 Please see below for information about the specific versions of the packages used to create this report. 
