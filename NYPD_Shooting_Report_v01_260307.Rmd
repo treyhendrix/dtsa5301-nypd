@@ -2,13 +2,13 @@
 title: NYPD Shooting Incident Data Report
 author: Trey Hendrix
 date: |
-Date Created: 260307
+  Date Created: 260307
   Date Modified: 260402
-  output: 
+output: 
   html_document:
+    self_contained: true
     toc: true
     number_sections: false
-    
 ---
 
 ```{r Setup, include=FALSE}
@@ -56,7 +56,7 @@ glimpse(raw_df)
 Most of these columns are self-explanatory; however, we will need to dig into the metadata to make sure we understand a few of them. 
 
 ```{r Column Definitions}
-# The structure of metadata can changes somewhat frequently, so this code chunk is allowed to fail without crashing the .Rmd
+# The structure of metadata can change somewhat frequently, so this code chunk is allowed to fail without crashing the .Rmd
 tryCatch({
   column_meta_list <- meta_list$distribution |> 
     filter(mediaType == "application/json") |> 
@@ -182,12 +182,12 @@ max_year <- df$occur_date |>
 ```
 
 
-A quick consultation with the [Wikipedia page Race and Ethnicity in New York City](https://en.wikipedia.org/wiki/Race_and_ethnicity_in_New_York_City) suggests that the demographics of shooting victims and perpetrators are inconsistent with NYC as a whole. Most dramatically, during the time period of our dataset (`r str_glue("{min_year} to {max_year}")`), we can approximate from the census data reported on the Wikipedia page that 1 in 4 NYC residents is black. However, our frequency table above shows that 7 out of 10 shooting victims is black, and 7 out of 10 known shooting perpetrators is black. 
+A quick consultation with the [Wikipedia page Race and Ethnicity in New York City](https://en.wikipedia.org/wiki/Race_and_ethnicity_in_New_York_City) suggests that the demographics of shooting victims and perpetrators are inconsistent with NYC as a whole. Most dramatically, during the time period of our dataset (`r str_glue("{min_year} to {max_year}")`), we can approximate from the census data reported on the Wikipedia page that 1 in 4 NYC residents is black. However, our frequency tables above show that 7 out of 10 shooting victims are black, and 7 out of 10 known shooting perpetrators are black. 
 
 **Bias Observation #2** As stated above, we have uncovered a prominent racial bias in these shooting incident data. Assuming these data are representative, this amounts to both a statistical bias and a institutional racial bias. However, I want to be careful and acknowledge my personal biases in this case, the complexity of the data, and reframe my research question in light of this. 
 
 1. With these kind of data, it is important to reiterate the adage "correlation is not causation." To understand the drivers of violent crime, we can't look at a single variable in isolation, even when we spot an eye catching pattern. Race and crime in the US is a complex and controversial topic. I do not feel that I have the expertise to expound on the topic. However, [this Wikipedia article on US race and crime](https://en.wikipedia.org/wiki/Race_and_crime_in_the_United_States) is a good introduction to the topic for those interested. In short, for this dataset, if we want to understand the drivers of shooting incidents, we only have a handful of variables (e.g., victim and perp race), but academic research has indicated that a plethora of factors may drive this violence: socioeconomic class, education, housing segregation, and even lead pollution. Most of these are not present in our dataset.
-2. Although I want to be measured in my approach to this analysis, I recognize that I personally believe that systemic racism is an important factor in violent crime and policing in the US. This is likely why I choose to look at `vic_race` and `perp_race` as the first analysis of my project.
+2. Although I want to be measured in my approach to this analysis, I recognize that I personally believe that systemic racism is an important factor in violent crime and policing in the US. This is likely why I chose to look at `vic_race` and `perp_race` as the first analysis of my project.
 3. In light of #1 and #2 above, I think it is appropriate to narrow my analysis and ask a more specific question that the data are appropriate for: **given the overrepresentation of certain demographic groups in our data, is there an association between the races of known perpetrators and victims? In other words, are shooting incidents more inter- (between races) or intraracial (within a race) than we might expect?**
 
 Given this new focus, let's visualize the joint distribution of our victim and perpetrator demographic data with a heatmap: 
@@ -318,11 +318,11 @@ Overall, we have found a statistical association between the race of victims and
 
 The name of the `naniar` package is a reference to C.S. Lewis' Narnia fantasy book series. The package's author sees missing data like the mythical realm of Narnia, a hidden other dimension to our data ([source](https://cran.r-project.org/web/packages/naniar/readme/README.html)). In many statistical analyses, there is a tendency to immediately drop records with missing data and then proceed with further analyses. This can be a critical mistake depending on the type of missing data we are dealing with.
 
-Broadly, there are three types of missing data: **missing completely at random (MCAR), missing at random (MAR), and missing not at random (MNAR)**. MCAR is the easiest to deal with since it means that our data are really just a random sample of a theoretical, more complete dataset. MAR is a bit tricker and refers to data that are missing due to the another observed variable in our dataset. For example, in weather data, we might be missing humidity measurements only at high temperatures (also recorded in our dataset) due to the equipment failing in high heat environments. We can correct for MAR with some statistical care. MNAR is the worst case scenario: the missing data are caused by something not captured in our dataset. This is not possible to fix without adding more data that explain the problematic pattern in the missing records. 
+Broadly, there are three types of missing data: **missing completely at random (MCAR), missing at random (MAR), and missing not at random (MNAR)**. MCAR is the easiest to deal with since it means that our data are really just a random sample of a theoretical, more complete dataset. MAR is a bit trickier and refers to data that are missing due to the another observed variable in our dataset. For example, in weather data, we might be missing humidity measurements only at high temperatures (also recorded in our dataset) due to the equipment failing in high heat environments. We can correct for MAR with some statistical care. MNAR is the worst case scenario: the missing data are caused by something not captured in our dataset. This is not possible to fix without adding more data that explain the problematic pattern in the missing records. 
 
-Since such a high proportion of our records are missing perp data, we can ask: **Is information about perpetrator race missing completely at random in our dataset?**
+Since such a high proportion of our records are missing perp data, we can ask: **Is information about perpetrators missing completely at random in our dataset?**
 
-If the data are MCAR, then the rate should be roughly constant across groups. Given our previous focus on victim race, we can look at the percent of missing perp information across its categories:
+If the data are MCAR, then the rate should be roughly constant across groups. Given our previous focus on victim race and finding about the overrepresentation of intraracial shootings, we can look at the percent of missing perp information across its categories:
 
 ```{r Missing perp by race}
 racial_df |> 
@@ -354,6 +354,10 @@ race_glm <- glm(missing_perp_info ~ vic_race, data = mod_df, family = "binomial"
 summary(race_glm)
 ```
 
+All predictors are highly significant and have negative estimates, meaning that a victim being any other race than black reduces the probability that perp information will be missing. 
+
+However, let's check if we can predict missing perp information via another variable that we have seen previously - borough: 
+
 ```{r Missing perp by Boro}
 df |> 
   group_by(boro) |> 
@@ -370,6 +374,8 @@ df |>
   scale_y_continuous(labels = label_percent(), breaks = pretty_breaks(n = 10)) + 
   cbw_rotated_theme()
 ```
+
+Again, these are fairly large differences among are groups, but we'll double check them with a GLM.
 
 ```{r boro lm}
 mod_df <- mod_df |> 
@@ -405,3 +411,4 @@ Please see below for information about the specific versions of the packages use
 sessionInfo()
 ```
 
+This HTML report was generated at `r format(Sys.time(), "%Y-%m-%d %H:%M:%S %Z")`.
