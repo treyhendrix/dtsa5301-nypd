@@ -405,6 +405,7 @@ Our full model with both `boro` and `vic_race` is a significant improvement.
 In conclusion, we have observed that both borough and victim race are statistically correlated with our missing perpetrator data. This meets the definition of missing at random (MAR) and means that we cannot simply drop cases with missing perpetrator data and proceed normally. We need to adjust for this "hidden" world of missing perpetrators using methods such as [multiple imputation](https://www.publichealth.columbia.edu/research/population-health-methods/missing-data-and-multiple-imputation). This applies to our previous analysis, [Analysis 1 - Racial Disparities]. I previously reported a statistical association between victim and perpetrator race for known perpetrators. However, a more accurate way to express this is: a statistical association between victim and perpetrator race for known perpetrators in this dataset in which missing perpetrator information is in turn associated with borough and victim race. This is messier, less compelling, and a preliminary result calling for a more complex analysis. Nevertheless, responsible data science often means careful language and incremental, iterative analyses. 
 
 # Session Info
+
 Please see below for information about the specific versions of the packages used to create this report. 
 
 ```{r Session info}
