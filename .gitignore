@@ -51,7 +51,3 @@ rsconnect/
 
 # Mac 
 .DS_Store
-
-# Report Output 
-*.html
-*.pdf
