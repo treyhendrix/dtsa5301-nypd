@@ -22,7 +22,7 @@ git clone https://github.com/treyhendrix/dtsa5301-nypd.git
 Alternatively, you can clone the repo to a specific location (e.g., your Downloads folder where it will be easy to delete later).
 
 ```bash
-# Replace <target-folder-name> with an actual filepath
+# Replace <target-folder-name> with an actual filepath, e.g., ~Downloads/temp_nypd_repo
 git clone https://github.com/treyhendrix/dtsa5301-nypd.git <target-folder-name>
 ```
 
