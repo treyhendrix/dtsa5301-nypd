@@ -2,9 +2,9 @@
 title: NYPD Shooting Incident Data Report
 author: Trey Hendrix
 date: |
-  Date Created: 260307
+Date Created: 260307
   Date Modified: 260402
-output: 
+  output: 
   html_document:
     toc: true
     number_sections: false
@@ -56,16 +56,28 @@ glimpse(raw_df)
 Most of these columns are self-explanatory; however, we will need to dig into the metadata to make sure we understand a few of them. 
 
 ```{r Column Definitions}
-column_meta_list <- meta_list$distribution |> 
-  filter(mediaType == "application/json") |> 
-  pull(downloadURL) |> 
-  fromJSON()
+# The structure of metadata can changes somewhat frequently, so this code chunk is allowed to fail without crashing the .Rmd
+tryCatch({
+  column_meta_list <- meta_list$distribution |> 
+    filter(mediaType == "application/json") |> 
+    pull(downloadURL) |> 
+    fromJSON()
+  
+  column_def_df <- column_meta_list$meta$view$columns
+  
+  column_def_df |> 
+    filter(fieldName %in% str_to_lower(c("X_COORD_CD", "Y_COORD_CD"))) |> 
+    select(fieldName, description) |> 
+    kbl() |> 
+    kable_classic_2()
+  
+}, error = function(e) {
+  print("Metadata retrival has failed. This is probably because the structure has been changed since this report was created.")
+  print(str_glue("Error: {e}"))
+  print("The report will proceed anyway without the metadata.")
+}
 
-column_def_df <- column_meta_list$meta$view$columns
-
-column_def_df |> 
-  filter(fieldName %in% str_to_lower(c("X_COORD_CD", "Y_COORD_CD"))) |> 
-  select(fieldName, description)
+)
 ```
 
 For our geographic data, we will stick to the standard latitude and longitude fields, so I will drop these variables in the section below.
@@ -84,7 +96,7 @@ df <- raw_df |>
     across( # clean up NA values stored as strings 
       where(is.character), 
       .fn = function(x) {ifelse(x %in% null_str_values, NA_character_, x)}
-      ), 
+    ), 
     precinct = as.character(precinct) # These are not meaningful as integers (they are categories)
   ) |> 
   select(-c(x_coord_cd, y_coord_cd)) # drop unwanted columns
@@ -120,23 +132,23 @@ df <- df |>
 
 # Analysis 1 - Racial Disparities 
 
-At a first glance, one of the most striking features of this dataset that I came across relates to racial disparities. Before we get started, I'll check that all of the racial groups are reasonably well represented in the data with a couple quick cross tabs:
+At a first glance, one of the most striking features of this dataset that I came across relates to racial disparities. Before we get started, I'll check that all of the racial groups are reasonably well represented in the data with a couple quick frequency tables:
 
-```{r Racial crosstabs}
-quick_crosstab <- function(var, focal_df = df) {
+```{r Racial freq tables}
+quick_freq_table <- function(var, focal_df = df) {
   focal_df |> 
-  count(.data[[var]]) |> 
-  mutate(
-    percent = n/sum(n), 
-    percent = paste0(round(percent * 100, 1), "%")
-  ) |> 
-  arrange(n) |> 
-  kbl() |> 
-  kable_classic_2(full_width = FALSE)
+    count(.data[[var]]) |> 
+    mutate(
+      percent = n/sum(n), 
+      percent = paste0(round(percent * 100, 1), "%")
+    ) |> 
+    arrange(n) |> 
+    kbl() |> 
+    kable_classic_2(full_width = FALSE)
 }
 
-quick_crosstab("vic_race", df)
-quick_crosstab("perp_race", df)
+quick_freq_table("vic_race", df)
+quick_freq_table("perp_race", df)
 
 
 ```
@@ -152,10 +164,10 @@ racial_known_df <- racial_df |>
   filter(!is.na(perp_race))
 ```
 
-Let's take another look at the perpetrator cross tab with the missing perp information filtered out: 
+Let's take another look at the perpetrator frequency table with the missing perp information filtered out: 
 
-```{r Known racial crosstabs}
-quick_crosstab("perp_race", racial_known_df)
+```{r Known racial freq table}
+quick_freq_table("perp_race", racial_known_df)
 ```
 
 ```{r}
@@ -170,7 +182,7 @@ max_year <- df$occur_date |>
 ```
 
 
-A quick consultation with the [Wikipedia page Race and Ethnicity in New York City](https://en.wikipedia.org/wiki/Race_and_ethnicity_in_New_York_City) suggests that the demographics of shooting victims and perpetrators are inconsistent with NYC as a whole. Most dramatically, during the time period of our dataset (`r str_glue("{min_year} to {max_year}")`), we can approximate from the census data reported on the Wikipedia page that 1 in 4 NYC residents is black. However, our cross tab below shows that 7 out of 10 shooting victims is black, and 2 out of 3 known shooting perpetrators is black. 
+A quick consultation with the [Wikipedia page Race and Ethnicity in New York City](https://en.wikipedia.org/wiki/Race_and_ethnicity_in_New_York_City) suggests that the demographics of shooting victims and perpetrators are inconsistent with NYC as a whole. Most dramatically, during the time period of our dataset (`r str_glue("{min_year} to {max_year}")`), we can approximate from the census data reported on the Wikipedia page that 1 in 4 NYC residents is black. However, our frequency table above shows that 7 out of 10 shooting victims is black, and 7 out of 10 known shooting perpetrators is black. 
 
 **Bias Observation #2** As stated above, we have uncovered a prominent racial bias in these shooting incident data. Assuming these data are representative, this amounts to both a statistical bias and a institutional racial bias. However, I want to be careful and acknowledge my personal biases in this case, the complexity of the data, and reframe my research question in light of this. 
 
@@ -187,8 +199,8 @@ cbw_theme <- theme_bw() +  # cbw = centered black and white theme
 
 cbw_rotated_theme <- function(angle = -45, hjust = 0, vjust = 1) { # rotate x-axis text 
   cbw_theme + 
-  theme(axis.text.x = element_text(angle = angle, hjust = hjust, vjust = vjust))
-  }
+    theme(axis.text.x = element_text(angle = angle, hjust = hjust, vjust = vjust))
+}
 ```
 
 ```{r Racial joint distribution plot}
@@ -248,15 +260,15 @@ chi_resid_df |>
   mutate(type = ifelse(vic_race == perp_race, "Intraracial", "Interracial")) |> 
   mutate(vic_race = paste(vic_race, "VICTIMS")) |> 
   ggplot(aes(x = perp_race, y = st_resid, color = type)) + 
-    geom_point() + 
-    facet_wrap(~vic_race, ncol = 2) + 
-    cbw_rotated_theme() + 
-    labs(
-      title = "Observed vs. Expected Victim and Perp Combinations by Race", 
-      x = "Perp Race", 
-      y = "Pearson Residuals", 
-      color = ""
-    ) + 
+  geom_point() + 
+  facet_wrap(~vic_race, ncol = 2) + 
+  cbw_rotated_theme() + 
+  labs(
+    title = "Observed vs. Expected Victim and Perp Combinations by Race", 
+    x = "Perp Race", 
+    y = "Pearson Residuals", 
+    color = ""
+  ) + 
   scale_color_manual(values = c("Interracial" = "darkblue", "Intraracial" = "darkred"))
 ```
 
@@ -268,13 +280,13 @@ racial_known_df |>
   summarize(intraracial_percent = mean(vic_race == perp_race), .groups = "drop") |> 
   mutate(vic_race = fct_reorder(vic_race, intraracial_percent, .desc = TRUE)) |> 
   ggplot(aes(x = vic_race, y = intraracial_percent)) + 
-    geom_col(fill = "darkblue") + 
-    cbw_rotated_theme() +
-    labs(
-      x = "Victim Race", 
-      y = "Intraracial Percent", 
-      title = "Intraracial Shooting Incidents by Victim Race"
-    ) + 
+  geom_col(fill = "darkblue") + 
+  cbw_rotated_theme() +
+  labs(
+    x = "Victim Race", 
+    y = "Intraracial Percent", 
+    title = "Intraracial Shooting Incidents by Victim Race"
+  ) + 
   theme(plot.margin = margin(
     t = 20, b = 20, l = 20, r = 40,
     unit = "pt"
