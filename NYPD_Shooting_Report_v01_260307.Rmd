@@ -3,11 +3,11 @@ title: NYPD Shooting Incident Data Report
 author: Trey Hendrix
 date: |
   Date Created: 260307
-  Date Modified: 260401
+  Date Modified: 260402
 output: 
   html_document:
     toc: true
-    number_sections: true
+    number_sections: false
     
 ---
 
@@ -21,7 +21,7 @@ knitr::opts_chunk$set(
 
 # Introduction
 
-In this report, I analyze [the historic NYPD shooting incident dataset from data.gov](https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic). I focus on the demographics of shooters and victims and explore the implications of missing perpetrator information. 
+In this report, I analyze [the historical NYPD shooting incident dataset from data.gov](https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic). I focus on the demographics of shooters and victims and explore the implications of missing perpetrator information. 
 
 ```{r Packages}
 library(tidyverse)
@@ -91,8 +91,6 @@ df <- raw_df |>
 
 ```
 
-## Missing Data
-
 From the previous `glimpse` call above, it is clear that many records have missing values. The `naniar` R package is my favorite way to understand patterns in missing data. First, let's see which variables have missing records:
 
 ```{r Missing counts}
@@ -104,10 +102,10 @@ df |>
   kable_classic_2(full_width = FALSE)
 ```
 
-Fortunately, the majority of records only have a small portion of missing records for most variables (`longitude` to `boro` in the graph above). These variables are also fairly essential/fundamental to understanding a crime that I feel comfortable dropping any records that are missing these information. However, a handful of variables are frequently missing. The location information `loc_classfctn_desc` and `loc_of_occur_desc` are missing too frequently to be informative, so I will largely ignore them. `location_desc` is available for 40% of records while information about the perpetrator (`perp_age_group`, `perp_race`, and `perp_sex`) are available for the majority of incidents. I am interested in digging into this pattern of missing data and will do so in [the second analysis section](# Analysis 2 - The Hidden World of Perps), so I will not drop or impute these data.
+Fortunately, the majority of records only have a small portion of missing records for most variables (`longitude` to `boro` in the graph above). These variables are also fairly essential/fundamental to understanding a crime that I feel comfortable dropping any records that are missing this information. However, a handful of variables are frequently missing. The location information `loc_classfctn_desc` and `loc_of_occur_desc` are missing too frequently to be informative, so I will largely ignore them. `location_desc` is available for 40% of records while information about the perpetrator (`perp_age_group`, `perp_race`, and `perp_sex`) are available for the majority of incidents. I am interested in digging into this pattern of missing data and will do so in [the second analysis section](#analysis-2---the-hidden-world-of-perps), so I will not drop or impute these data.
 
 
-**Bias Observation #1**: Approximately half of our records are missing information about the race and sex of the perpetrator, while the victims' race and sex is never missing. We need to keep this bias in the data in mind when analyzing perpetrator-victim dynamics. This bias is somewhat intuitive: crimes are reported by victims, not perpetrators.
+**Bias Observation #1**: Approximately half of our records are missing information about the race and sex of the perpetrator, while the victims' race and sex are rarely missing. We need to keep this bias in the data in mind when analyzing perpetrator-victim dynamics. This bias is somewhat intuitive: crimes are reported by victims, not perpetrators.
 
 ```{r Critical NA drop}
 # Dropping records with critical missing information
@@ -122,7 +120,7 @@ df <- df |>
 
 # Analysis 1 - Racial Disparities 
 
-At a first glance, one of the most striking features of this dataset that I came across relate to racial disparities. Before we get started, I'll check that all of the racial groups are reasonably well represented in the data with a couple quick cross tabs:
+At a first glance, one of the most striking features of this dataset that I came across relates to racial disparities. Before we get started, I'll check that all of the racial groups are reasonably well represented in the data with a couple quick cross tabs:
 
 ```{r Racial crosstabs}
 quick_crosstab <- function(var, focal_df = df) {
@@ -143,11 +141,11 @@ quick_crosstab("perp_race", df)
 
 ```
 
-Again, we see that the most common race of the perpetrator is unknown. We will revisit this observation in the next section and, for now, focus on observations when complete perpetrator information. Additionally, there are too few "AMERICAN INDIAN/ALASKAN NATIVE" records to do meaningful analysis and comparisons, so I will drop those records. 
+Again, we see that the most common race of the perpetrator is unknown. We will revisit this observation in the next section and, for now, focus on observations with complete perpetrator information. Additionally, there are too few "AMERICAN INDIAN/ALASKAN NATIVE" records to do meaningful analysis and comparisons, so I will drop those records. 
 
 ```{r Dropping native records}
 racial_df <- df |> 
-  filter(is.na(vic_race) | vic_race != "AMERICAN INDIAN/ALASKAN NATIVE") |> 
+  filter(vic_race != "AMERICAN INDIAN/ALASKAN NATIVE") |> 
   filter(is.na(perp_race) | perp_race != "AMERICAN INDIAN/ALASKAN NATIVE") 
 
 racial_known_df <- racial_df |> 
@@ -172,15 +170,15 @@ max_year <- df$occur_date |>
 ```
 
 
-A quick consultation with the [Wikipedia page Race and Ethnicity in New York City](https://en.wikipedia.org/wiki/Race_and_ethnicity_in_New_York_City) suggests that the demographics of shooting victims and perpetrators is inconsistent with that of NYC as a whole. Most dramatically, during the time period of our dataset (`r str_glue("{min_year} to {max_year}")`), we can approximate from the census data reported on the Wikipedia page that 1 in 4 NYC residents is black. However, our cross tab below shows that 7 out of 10 shooting victims is black, and 2 out of 3 known shooting perpetrators is black. 
+A quick consultation with the [Wikipedia page Race and Ethnicity in New York City](https://en.wikipedia.org/wiki/Race_and_ethnicity_in_New_York_City) suggests that the demographics of shooting victims and perpetrators are inconsistent with NYC as a whole. Most dramatically, during the time period of our dataset (`r str_glue("{min_year} to {max_year}")`), we can approximate from the census data reported on the Wikipedia page that 1 in 4 NYC residents is black. However, our cross tab below shows that 7 out of 10 shooting victims is black, and 2 out of 3 known shooting perpetrators is black. 
 
 **Bias Observation #2** As stated above, we have uncovered a prominent racial bias in these shooting incident data. Assuming these data are representative, this amounts to both a statistical bias and a institutional racial bias. However, I want to be careful and acknowledge my personal biases in this case, the complexity of the data, and reframe my research question in light of this. 
 
 1. With these kind of data, it is important to reiterate the adage "correlation is not causation." To understand the drivers of violent crime, we can't look at a single variable in isolation, even when we spot an eye catching pattern. Race and crime in the US is a complex and controversial topic. I do not feel that I have the expertise to expound on the topic. However, [this Wikipedia article on US race and crime](https://en.wikipedia.org/wiki/Race_and_crime_in_the_United_States) is a good introduction to the topic for those interested. In short, for this dataset, if we want to understand the drivers of shooting incidents, we only have a handful of variables (e.g., victim and perp race), but academic research has indicated that a plethora of factors may drive this violence: socioeconomic class, education, housing segregation, and even lead pollution. Most of these are not present in our dataset.
 2. Although I want to be measured in my approach to this analysis, I recognize that I personally believe that systemic racism is an important factor in violent crime and policing in the US. This is likely why I choose to look at `vic_race` and `perp_race` as the first analysis of my project.
-3. In light of #1 and #2 above, I think it is appropriate to narrow my analysis and ask a more specific question that the data are appropriate for: **given the overrepresentation of certain demographic groups in our data, is these an association between the races of known perpetrators and victims? In other words, are shooting incidents more inter- (between races) or intraracial (within a race) than we might expect?**
+3. In light of #1 and #2 above, I think it is appropriate to narrow my analysis and ask a more specific question that the data are appropriate for: **given the overrepresentation of certain demographic groups in our data, is there an association between the races of known perpetrators and victims? In other words, are shooting incidents more inter- (between races) or intraracial (within a race) than we might expect?**
 
-Given this new focus, let's visualize the joint distribution of our victim and prepetrator data demographic data with a heatmap: 
+Given this new focus, let's visualize the joint distribution of our victim and perpetrator demographic data with a heatmap: 
 
 ```{r ggplot theme}
 # I will reuse this theme throughout this report for graphs
@@ -310,7 +308,9 @@ The name of the `naniar` package is a reference to C.S. Lewis' Narnia fantasy bo
 
 Broadly, there are three types of missing data: **missing completely at random (MCAR), missing at random (MAR), and missing not at random (MNAR)**. MCAR is the easiest to deal with since it means that our data are really just a random sample of a theoretical, more complete dataset. MAR is a bit tricker and refers to data that are missing due to the another observed variable in our dataset. For example, in weather data, we might be missing humidity measurements only at high temperatures (also recorded in our dataset) due to the equipment failing in high heat environments. We can correct for MAR with some statistical care. MNAR is the worst case scenario: the missing data are caused by something not captured in our dataset. This is not possible to fix without adding more data that explain the problematic pattern in the missing records. 
 
-Given our previous focus on race, we can look at the percent of missing perp information by victim race. If the data are MCAR, then the rate should be roughly constant across groups:
+Since such a high proportion of our records are missing perp data, we can ask: **Is information about perpetrator race missing completely at random in our dataset?**
+
+If the data are MCAR, then the rate should be roughly constant across groups. Given our previous focus on victim race, we can look at the percent of missing perp information across its categories:
 
 ```{r Missing perp by race}
 racial_df |> 
@@ -329,7 +329,7 @@ racial_df |>
   cbw_rotated_theme()
 ```
 
-These are substantial differences, but we can validate this with a logistic linear model. If victim race is a significant predictor of missing perp information, then our data are by definition MAR. For these models, I will set the reference level to the most common classes in the model 
+These are substantial differences, but we can validate this with a logistic linear model. If victim race is a significant predictor of missing perp information, then our data are by definition MAR. For these models, I will set the reference level to the most common classes in the model since this can improve model stability.
 
 ```{r Boro models}
 # Set reference levels for our categorical variables
@@ -342,7 +342,7 @@ race_glm <- glm(missing_perp_info ~ vic_race, data = mod_df, family = "binomial"
 summary(race_glm)
 ```
 
-```{r Missing perp by Borro}
+```{r Missing perp by Boro}
 df |> 
   group_by(boro) |> 
   summarize(mean_missing_perp_info = mean(missing_perp_info)) |> 
@@ -367,20 +367,24 @@ boro_glm <- glm(missing_perp_info ~ boro, data = mod_df, family = "binomial")
 summary(boro_glm)
 ```
 
+Since Brooklyn is our reference level, this model unsurprisingly finds that being in any other borough reduces the probability of missing perp data. All predictors are highly significant again. We already saw that race clusters geographically in our dataset, so do we need both `boro` and `vic_race` in our model? We can check by including both in a single model. 
 
 ```{r boro race mod}
 boro_race_glm <- glm(missing_perp_info ~ boro + vic_race, data = mod_df, family = "binomial")
 summary(boro_race_glm)
 ```
 
-To supplement individual predictor p-values, we can use a likelihood ratio test to test if adding `boro` to our `vic_race` model significantly improves model fit:
+Again, every predictor is significant. However, to supplement individual predictor p-values, we can use a likelihood ratio test to test if adding `vic_race` to our `boro_glm` model significantly improves model fit:
 
 ```{r model comparison}
 anova(boro_glm, boro_race_glm)
 ```
-**Bias Observation #3**: Our missing perpetrator data are not missing completely at random (MCAR). This is a significant source of statistical bias that requires a different suite of tools and models. 
 
-In conclusion, we have observed that both borough and victim race are statistically correlated with our missing perpetrator data. This meets the definition of missing at random (MAR) and means that we cannot simply drop cases with missing perpetrator data and proceed normally. We need to adjust for this "hidden" world of missing perpetrators using methods such as [multiple imputation](https://www.publichealth.columbia.edu/research/population-health-methods/missing-data-and-multiple-imputation). This applies to our previous analysis, [Analysis #1 - Racial Disparities]. I previously reported a statistical association between victim and perpetrator race for known perpetrators. However, a more accurate way to express this is: a statistical association between victim and perpetrator race for known perpetrators in this dataset in which missing perpetrator information is in turn associated with borough and victim race. This is messier, less compelling, and a preliminary result calling for a more complex analysis. Nevertheless, responsible data science often means careful language and incremental, iterative analyses. 
+Our full model with both `boro` and `vic_race` is a significant improvement.
+
+**Bias Observation #3**: Given these model results, we can be reasonably confident that our missing perpetrator data are not missing completely at random (MCAR). This is a significant source of statistical bias that requires a different suite of tools and models. 
+
+In conclusion, we have observed that both borough and victim race are statistically correlated with our missing perpetrator data. This meets the definition of missing at random (MAR) and means that we cannot simply drop cases with missing perpetrator data and proceed normally. We need to adjust for this "hidden" world of missing perpetrators using methods such as [multiple imputation](https://www.publichealth.columbia.edu/research/population-health-methods/missing-data-and-multiple-imputation). This applies to our previous analysis, [Analysis 1 - Racial Disparities]. I previously reported a statistical association between victim and perpetrator race for known perpetrators. However, a more accurate way to express this is: a statistical association between victim and perpetrator race for known perpetrators in this dataset in which missing perpetrator information is in turn associated with borough and victim race. This is messier, less compelling, and a preliminary result calling for a more complex analysis. Nevertheless, responsible data science often means careful language and incremental, iterative analyses. 
 
 # Session Info
 Please see below for information about the specific versions of the packages used to create this report. 
