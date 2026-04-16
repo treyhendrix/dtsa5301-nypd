@@ -575,7 +575,8 @@ display: none;
 
 <h1 class="title toc-ignore">NYPD Shooting Incident Data Report</h1>
 <h4 class="author">Trey Hendrix</h4>
-<h4 class="date"><p>Date Created: 260307 Date Modified: 260402</p></h4>
+<h4 class="date"><p>Date Created: 260307</p>
+<p>Date Modified: 260416</p></h4>
 
 </div>
 
@@ -596,51 +597,29 @@ World of Perps</a></li>
 
 <div id="introduction" class="section level1">
 <h1>Introduction</h1>
-<p>In this report, I analyze <a href="https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic">the
+<p>In this report, I analyze <a href="https://catalog.data.gov/dataset/archived_nypd-shooting-incident-data-historic">the
 historical NYPD shooting incident dataset from data.gov</a>. I focus on
 the demographics of shooters and victims and explore the implications of
-missing perpetrator information.</p>
-<pre class="r"><code>library(tidyverse)</code></pre>
-<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
-## ✔ dplyr     1.2.0     ✔ readr     2.2.0
-## ✔ forcats   1.0.1     ✔ stringr   1.6.0
-## ✔ ggplot2   4.0.2     ✔ tibble    3.3.1
-## ✔ lubridate 1.9.5     ✔ tidyr     1.3.2
-## ✔ purrr     1.2.1     
-## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
-## ✖ dplyr::filter() masks stats::filter()
-## ✖ dplyr::lag()    masks stats::lag()
-## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
-<pre class="r"><code>library(kableExtra) # for more aesthetic and customizable data tables</code></pre>
-<pre><code>## 
-## Attaching package: &#39;kableExtra&#39;
-## 
-## The following object is masked from &#39;package:dplyr&#39;:
-## 
-##     group_rows</code></pre>
-<pre class="r"><code>library(jsonlite) # for parsing JSON metadata </code></pre>
-<pre><code>## 
-## Attaching package: &#39;jsonlite&#39;
-## 
-## The following object is masked from &#39;package:purrr&#39;:
-## 
-##     flatten</code></pre>
-<pre class="r"><code>library(naniar) # for visualizing and analyzing missing data
+missing perpetrator information. The dataset is a massive collection of
+every shooting that occurred in NYC over approximately the last 20
+years. It contains basic information about each shooting incident,
+including the time, location, and demographic details of the victim and
+perpetrator.</p>
+<p>Note: the structure of the dataset changed between my submission of
+this assignment for module 3 (knit document/HTML only) and module 5
+(reproducible Rmd), so the code has been updated to reflect that,
+although the data are presumably unchanged. This mostly affects the
+metadata, which are retrieved in a <code>tryCatch</code> in case further
+changes occur.</p>
+<pre class="r"><code>library(tidyverse)
+library(kableExtra) # for more aesthetic and customizable data tables
+library(jsonlite) # for parsing JSON metadata 
+library(naniar) # for visualizing and analyzing missing data
 library(scales) # for graph labels</code></pre>
-<pre><code>## 
-## Attaching package: &#39;scales&#39;
-## 
-## The following object is masked from &#39;package:purrr&#39;:
-## 
-##     discard
-## 
-## The following object is masked from &#39;package:readr&#39;:
-## 
-##     col_factor</code></pre>
 </div>
 <div id="importing-data-and-metadata" class="section level1">
 <h1>Importing Data and Metadata</h1>
-<p>Using the <a href="https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic">“ARCHIVED_NYPD
+<p>Using the <a href="https://catalog.data.gov/dataset/archived_nypd-shooting-incident-data-historic">“ARCHIVED_NYPD
 Shooting Incident Data (Historic)” on the data.gov website</a>, we can
 copy the link for downloading the .csv format of the dataset. Similarly,
 we can also grab the metadata via this page (which is a JSON).</p>
@@ -656,7 +635,6 @@ we can also grab the metadata via this page (which is a JSON).</p>
 ## 
 ## ℹ Use `spec()` to retrieve the full column specification for this data.
 ## ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
-<pre class="r"><code>meta_list &lt;- fromJSON(&quot;https://catalog.data.gov/harvest/object/e150b92a-5c72-4adc-8df5-f27a0a0b641b&quot;)</code></pre>
 <pre class="r"><code>glimpse(raw_df)</code></pre>
 <pre><code>## Rows: 29,744
 ## Columns: 21
@@ -685,6 +663,7 @@ we can also grab the metadata via this page (which is a JSON).</p>
 dig into the metadata to make sure we understand a few of them.</p>
 <pre class="r"><code># The structure of metadata can change somewhat frequently, so this code chunk is allowed to fail without crashing the .Rmd
 tryCatch({
+  meta_list &lt;- fromJSON(&quot;https://catalog.data.gov/harvest_record/70db1520-dadb-4dbd-b983-2ea04341fea0/raw&quot;)
   column_meta_list &lt;- meta_list$distribution |&gt; 
     filter(mediaType == &quot;application/json&quot;) |&gt; 
     pull(downloadURL) |&gt; 
@@ -1738,7 +1717,7 @@ packages used to create this report.</p>
 ## [41] tidyselect_1.2.1   rstudioapi_0.18.0  knitr_1.51         farver_2.1.2      
 ## [45] htmltools_0.5.9    labeling_0.4.3     rmarkdown_2.30     svglite_2.2.2     
 ## [49] compiler_4.5.2     S7_0.2.1</code></pre>
-<p>This HTML report was generated at 2026-04-02 08:55:51 EDT.</p>
+<p>This HTML report was generated at 2026-04-16 08:42:49 EDT.</p>
 </div>
 
 

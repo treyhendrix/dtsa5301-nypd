@@ -3,7 +3,8 @@ title: NYPD Shooting Incident Data Report
 author: Trey Hendrix
 date: |
   Date Created: 260307
-  Date Modified: 260402
+  
+  Date Modified: 260416
 output: 
   html_document:
     self_contained: true
@@ -21,9 +22,11 @@ knitr::opts_chunk$set(
 
 # Introduction
 
-In this report, I analyze [the historical NYPD shooting incident dataset from data.gov](https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic). I focus on the demographics of shooters and victims and explore the implications of missing perpetrator information. 
+In this report, I analyze [the historical NYPD shooting incident dataset from data.gov](https://catalog.data.gov/dataset/archived_nypd-shooting-incident-data-historic). I focus on the demographics of shooters and victims and explore the implications of missing perpetrator information. The dataset is a massive collection of every shooting that occurred in NYC over approximately the last 20 years. It contains basic information about each shooting incident, including the time, location, and demographic details of the victim and perpetrator. 
 
-```{r Packages}
+Note: the structure of the dataset changed between my submission of this assignment for module 3 (knit document/HTML only) and module 5 (reproducible Rmd), so the code has been updated to reflect that, although the data are presumably unchanged. This mostly affects the metadata, which are retrieved in a `tryCatch` in case further changes occur.
+
+```{r Packages, message=FALSE}
 library(tidyverse)
 library(kableExtra) # for more aesthetic and customizable data tables
 library(jsonlite) # for parsing JSON metadata 
@@ -44,10 +47,9 @@ if (getRversion() < "4.1.0") {
 
 # Importing Data and Metadata
 
-Using the ["ARCHIVED_NYPD Shooting Incident Data (Historic)" on the data.gov website](https://catalog.data.gov/dataset/nypd-shooting-incident-data-historic), we can copy the link for downloading the .csv format of the dataset. Similarly, we can also grab the metadata via this page (which is a JSON).
+Using the ["ARCHIVED_NYPD Shooting Incident Data (Historic)" on the data.gov website](https://catalog.data.gov/dataset/archived_nypd-shooting-incident-data-historic), we can copy the link for downloading the .csv format of the dataset. Similarly, we can also grab the metadata via this page (which is a JSON).
 ```{r Import data}
 raw_df <- read_csv("https://data.cityofnewyork.us/api/views/833y-fsy8/rows.csv?accessType=DOWNLOAD")
-meta_list <- fromJSON("https://catalog.data.gov/harvest/object/e150b92a-5c72-4adc-8df5-f27a0a0b641b")
 ```
 
 ```{r Data overview}
@@ -58,6 +60,7 @@ Most of these columns are self-explanatory; however, we will need to dig into th
 ```{r Column Definitions}
 # The structure of metadata can change somewhat frequently, so this code chunk is allowed to fail without crashing the .Rmd
 tryCatch({
+  meta_list <- fromJSON("https://catalog.data.gov/harvest_record/70db1520-dadb-4dbd-b983-2ea04341fea0/raw")
   column_meta_list <- meta_list$distribution |> 
     filter(mediaType == "application/json") |> 
     pull(downloadURL) |> 
