@@ -9,7 +9,7 @@ This repository contains my (Trey Hendrix's) DTSA 5301 module 3 and 5 assignment
 
 As Dr. Wall suggested, I include a list of all R packages used as the second cell of my `NYPD_Shooting_Report_v01_260307.Rmd` file. Additionally, the last cell of the document calls `sessionInfo()`, which lists the exact versions of all packages used. 
 
-As an alternative to this approach, I also use [`renv`](https://rstudio.github.io/renv/articles/renv.html) to ensure package version consistency and create a reproducible R environment. While `sessionInfo()` is passive (it tells you whan packages you need and leaves it up to you to install them), `renv` is active and will set up an isolated, exact reproduction of my R environment on your machine. Specifically, `renv` will install packages into a project-specific library and, thus, will not interfere with your global R library or other R projects. To set up the environment locally:
+As an alternative to this approach, I also use [`renv`](https://rstudio.github.io/renv/articles/renv.html) to ensure package version consistency and create a reproducible R environment. While `sessionInfo()` is passive (it tells you what packages you need and leaves it up to you to install them), `renv` is active and will set up an isolated, exact reproduction of my R environment on your machine. Specifically, `renv` will install packages into a project-specific library and, thus, will not interfere with your global R library or other R projects. To set up the environment locally:
 
 ### 1. Clone the Repository
 
